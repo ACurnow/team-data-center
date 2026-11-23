@@ -240,6 +240,10 @@ class Source:
 GSI_POINT = (141.2948, 43.1797)  # GSI geocoder, 石狩市新港中央1丁目 (district point, not a building)
 
 
+ISHIKARI_PLAN = ("Ishikari City and Tokyu Land, decarbonization-leading-area plan, revised 2025-07-04: "
+                 "https://www.city.ishikari.hokkaido.jp/_res/projects/default_project/_page_/001/002/422/senko20250704.pdf")
+
+
 def ishikari_sources(sakura: Site) -> list[Source]:
     """The data centers in Ishikari Bay New Port (all in 新港中央). Only Sakura is mapped in OSM;
     the others sit at labelled approximate points (two Overpass queries for buildings timed out)."""
@@ -251,15 +255,17 @@ def ishikari_sources(sakura: Site) -> list[Source]:
                ("おおよその位置：新港中央1丁目722番1（地番）の地区代表点（国土地理院）",
                 "Approximate: GSI district point for lot 新港中央1丁目722番1"),
                f"source: 15,000 kVA, ≥10 MW supplied from Aug 2026 ({URL['isrd']} ; {URL['isrd_mw']}); "
-               "IT load not published, so high = 10 MW and low = 6 MW (part-filled halls) are assumptions"),
+               "high = 10 MW matches the city plan's 87.6 GWh/yr (" + ISHIKARI_PLAN + "); "
+               "low = 6 MW (part-filled halls) is an assumption"),
         Source("sakura", sakura.name, sakura.name_en, sakura.lon, sakura.lat, {"low": 5.0, "high": 10.0},
                "operating", ("OpenStreetMapの建物", "OpenStreetMap building"),
                f"assumption: MW not published; up to about 3,000 racks in 3 buildings ({URL['sakura_racks']})"),
         Source("zed", "京セラコミュニケーションシステム ZED石狩", "KCCS ZED Ishikari", *zed,
-               {"low": 2.0, "high": 3.0}, "operating",
+               {"low": 0.9, "high": 3.0}, "operating",
                ("仮の位置：新港中央1丁目内（建物は地図に未登録）", "Placeholder inside 新港中央1丁目 (building not mapped)"),
                f"source: 2-3 MW, 400 racks, operating since Oct 2024 ({URL['zed']}); "
-               f"already uses its waste heat for floor and road heating ({URL['zed_heat']})"),
+               f"already uses its waste heat for floor and road heating ({URL['zed_heat']}); "
+               "low = 0.9 MW from the city plan's 8.1 GWh/yr for the KCCS data center (" + ISHIKARI_PLAN + ")"),
         Source("nttme", "NTT-MEのコンテナ型データセンター（計画）", "NTT-ME container data centers (planned)", *ntt,
                {"low": 0.0, "high": 1.5}, "planned",
                ("仮の位置：港湾地区内（場所は未公表）", "Placeholder in the port area (site not published)"),

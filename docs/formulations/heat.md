@@ -96,48 +96,47 @@ This is a prize-collecting Steiner tree with monthly capacities, written in mult
 
 **Check against v1.** Restricted to one data center, one large pipe size at 100,000 yen/m, COP 4 and no loss, version 2 reproduces version 1 exactly: 15 sites, 16.1 km, 137.5 M yen/year.
 
-### Results so far, heat-pump investment included
+### Results so far (50 candidate sites, heat-pump investment included)
 
-Four scenarios with equal weights: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. Heat pumps cost 150 M yen/MW at the users (assumption) and 100 M yen/MW centrally (Odense data). Annual net benefit, million yen. Run logs: `results/` (commit fe6fdf9 and 86ef0cf).
+Four scenarios with equal weights: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. ZED's low IT load is 0.9 MW, from the city's plan. Heat pumps cost 150 M yen/MW at the users (an assumption) and 100 M yen/MW centrally (Odense data). Values are annual net benefits in million yen. The run logs are in `results/` (commit 2d3b342).
 
 | Mode | Plan | Sites | Pipe km | Expected | Worst case | Max regret | Payback |
 |---|---|---|---|---|---|---|---|
-| ambient | stochastic | 6 | 5.0 | 85.3 | 59.9 | 17.8 | 8.7 y |
-| ambient | worst case | 5 | 3.0 | 80.6 | 61.2 | 28.6 | 5.9 y |
-| ambient | min-max regret | 6 | 5.0 | 85.3 | 59.9 | 17.8 | 8.7 y |
-| central | stochastic | 10 | 7.5 | 62.6 | 17.9 | 14.8 | 11.9 y |
-| central | worst case | 5 | 3.0 | 52.1 | 32.7 | 36.1 | 6.7 y |
-| central | min-max regret | 8 | 6.3 | 62.1 | 25.0 | 8.3 | 10.8 y |
+| ambient | stochastic | 13 | 7.8 | 93.8 | 55.4 | 18.4 | 10.6 y |
+| ambient | worst case | 5 | 3.2 | 79.1 | 59.7 | 52.2 | 6.1 y |
+| ambient | min-max regret | 13 | 7.9 | 91.5 | 51.5 | 17.9 | 10.6 y |
+| central | stochastic | 15 | 8.0 | 81.5 | 34.6 | 6.7 | 10.5 y |
+| central | worst case | 12 | 5.5 | 70.3 | 36.7 | 31.2 | 9.1 y |
+| central | min-max regret | 17 | 8.4 | 81.1 | 32.2 | 5.1 | 10.8 y |
 
-- Without heat-pump investment the stochastic plans reach 121.5 (ambient, 8 sites) and 115.8 (central, 13 sites).
-- Value of the stochastic solution: 0.4 (ambient), 2.6 (central). Expected value of perfect information: 9.0 and 7.5.
+- **Without heat-pump investment,** the stochastic plans reach 149.5 (ambient, 19 sites) and 152.1 (central, 25 sites).
+- **Value of the stochastic solution:** 14.8 (ambient) and 0.0 (central). **Expected value of perfect information:** 10.0 and 3.9.
+- **At today's kerosene price** (156.8 yen/L), the ambient plan connects 16 sites with 10.7 km and earns 140.3.
+- **Check against v1:** v2 restricted to v1 gives 159.3, against 159.8 for v1, within the solver's 5.6 % gap (24 sites, 18.6 km).
 
 **Each data center on its own: optimized network vs the top-5 pairs** (expected net)
 
 | Data center | Ambient, optimized | Ambient, pairs | Central, optimized | Central, pairs |
 |---|---|---|---|---|
-| No. 1 | 84.5 | 65.3 | 62.6 | 40.4 |
-| Sakura | 81.6 | 58.4 | 59.5 | 37.2 |
-| ZED | 80.6 | 59.6 | 52.1 | 36.8 |
+| No. 1 | 91.3 | 65.3 | 80.6 | 40.4 |
+| Sakura | 85.7 | 58.4 | 75.4 | 37.2 |
+| ZED | 58.2 | 50.0 | 39.9 | 30.8 |
 | NTT-ME (planned) | 3.8 | 0.8 | 0.0 | 0.0 |
 
-The pair-by-pair approach reaches 63–77 % of the optimized network.
-
-**Robust sweep over Γ** (kerosene at 115 yen/L):
-- *Ambient.* The Γ = 0 plan earns 66.0 but connects one site to the planned NTT-ME center. If that center runs low or is not built, the plan falls to 33.0. The robust plan for every Γ ≥ 1 (5 sites on ZED) keeps 61.2 in every case, so the price of robustness is 7.3 %.
-- *Central.* With heat-pump investment, every Γ gives the same robust plan: 5 sites on ZED, 32.7.
+**Robust sweep over Γ** (kerosene at 115 yen/L; column-and-constraint generation):
+- *Ambient.* The Γ = 0 plan earns 66.0: five sites on ZED and road heating on the planned NTT-ME. Its worst case is 32.3 at Γ = 1 (ZED low) and −0.7 at Γ = 2 (ZED low and NTT-ME not built). The plan for every Γ ≥ 1 serves the same five sites from No. 1 and keeps 59.7 in every case. Its price of robustness is 9.7 %.
+- *Central.* The Γ = 0 plan earns 38.0 with twelve sites on ZED, and its worst case is −1.4. The robust plan, eleven sites on No. 1, keeps 37.3 at a price of 1.8 %.
 
 **What the results say.**
-- Once heat pumps are paid for, the ambient loop clearly beats the central heat pump (85.3 against 62.6 expected), because the fish farm and snow melting take the heat directly.
-- Waste heat is plentiful in the port area once four data centers are counted. IT-load uncertainty therefore matters mainly when a plan leans on a small or planned center.
-- The kerosene price drives the plan. Regret shows its effect most clearly.
+- Small or planned data centers are where uncertainty bites. A robust plan moves users to the large, operating center at a small price.
+- Planning for the average scenario costs 14.8 a year against the stochastic plan in ambient mode.
+- With heat pumps paid for, the ambient loop beats the central heat pump (93.8 against 81.5).
 
 **Caveats.**
-- The locations of No. 1 and ZED are approximate, and NTT-ME's is a placeholder. The robust plans pick ZED, so these locations must be checked before any conclusion is drawn. Sakura gets no partners in the regional plans.
-- No. 1's top partner is the assumed fish farm, at a placeholder location.
-- The model uses monthly energy only, with no hourly peaks and no storage.
-- In ambient mode the largest pipe size (DN250) carries 4.6 MW; larger trunk sizes should be added.
-- The peak factors, temperatures, velocities, the pipe-cost line and the heat-pump cost at the users are assumptions.
+- The plans are not certified optimal: the gaps against HiGHS bounds are 13–25 %.
+- Data-center positions are approximate or placeholders. Several users are assumed sites, and demand per building type is an assumption.
+- The model has monthly energy balances only, with a flat heat-loss share.
+- The largest pipe (DN250) carries 4.6 MW in ambient mode.
 
 ## Open questions
 

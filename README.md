@@ -30,41 +30,45 @@ We took the idea starter **"Warm Ishikari"**: a matchmaker and calculator for da
 
 ## Results so far (theme 1)
 
-All figures are annual net benefits in million yen, averaged over four scenarios: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. The net benefit is the value of the kerosene replaced, minus heat-pump electricity, minus the annualized cost of pipes and heat pumps. Pipe costs follow [15], heat-pump costs [16], kerosene prices [11], and monthly demand follows JMA climate normals [12].
+All figures are annual net benefits in million yen, averaged over four scenarios: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. The net benefit is the value of the kerosene replaced, minus heat-pump electricity, minus the annualized cost of pipes and heat pumps. Pipe costs follow [15], heat-pump costs [16], kerosene prices [11], and monthly demand follows JMA climate normals [12]. There are 50 candidate sites: 40 from OpenStreetMap facility tags, plus 10 named public buildings, hotels and a factory. Demand per building type is an assumption.
 
 ### A shared network beats pair-by-pair matching
 
-Matching each user to a data center on its own, the "five ranked partners" of the idea starter, reaches only **63–77 %** of what an optimized shared network earns.
+Matching each user to a data center on its own (the "five ranked partners" of the idea starter) reaches only **49–72 %** of what an optimized shared network earns at the two large data centers, and 77–86 % at the small ZED.
 
 | Data center | Network temperature | Optimized network | Top-5 pairs | Pairs reach |
 |---|---|---|---|---|
-| No. 1 | ambient loop | 84.5 (6 sites, 5.0 km) | 65.3 (3 sites, 5.1 km) | 77 % |
-| Sakura | ambient loop | 81.6 (6 sites, 5.2 km) | 58.4 (2 sites, 3.4 km) | 72 % |
-| ZED | ambient loop | 80.6 (5 sites, 3.0 km) | 59.6 (3 sites, 4.9 km) | 74 % |
-| No. 1 | central heat pump | 62.6 (10 sites, 7.5 km) | 40.4 (4 sites, 6.8 km) | 65 % |
-| Sakura | central heat pump | 59.5 (9 sites, 6.3 km) | 37.2 (2 sites, 3.4 km) | 63 % |
-| ZED | central heat pump | 52.1 (5 sites, 3.0 km) | 36.8 (4 sites, 6.2 km) | 71 % |
+| No. 1 | ambient loop | 91.3 (13 sites, 8.7 km) | 65.3 (3 sites, 5.1 km) | 72 % |
+| Sakura | ambient loop | 85.7 (13 sites, 8.7 km) | 58.4 (2 sites, 3.4 km) | 68 % |
+| ZED | ambient loop | 58.2 (3 sites, 2.8 km) | 50.0 (3 sites, 4.1 km) | 86 % |
+| No. 1 | central heat pump | 80.6 (15 sites, 8.2 km) | 40.4 (4 sites, 6.8 km) | 50 % |
+| Sakura | central heat pump | 75.4 (13 sites, 7.1 km) | 37.2 (2 sites, 3.4 km) | 49 % |
+| ZED | central heat pump | 39.9 (3 sites, 2.8 km) | 30.8 (4 sites, 5.6 km) | 77 % |
 
 Three effects explain the gap:
 
-1. **No duplicated pipes.** Serving five users with separate pipes takes 9.3 km of road; the shared network takes 3.0 km.
+1. **No duplicated pipes.** At No. 1 (ambient loop) the network serves 13 sites with 8.7 km of pipe; the five best pairs serve 3 sites with 5.1 km.
 2. **Users that lose money alone pay off on a branch.** A pool 2.8 km from data center No. 1 loses about 8.5 M yen a year with its own pipe. Its heat is worth about 8.6 M yen a year after heat-pump costs, so it pays off on any branch shorter than about 1.4 km.
 3. **Large pipes are cheaper per unit of heat.** Per megawatt carried, a metre of DN250 pipe costs about one seventh of a metre of DN80 (cost line from [15]).
 
-### Robust planning avoids leaning on a planned data center
+### Robust planning avoids leaning on uncertain data centers
 
-- **The nominal plan.** With every data center at its nominal IT load, the best plan earns 66.0. It feeds road heating from the planned NTT-ME data center.
-- **What happens if that center is not built.** The plan then earns only 33.0.
-- **The robust plan.** It allows at most one data center at its low IT load and is solved by column-and-constraint generation [31, 33]. It drops that link and keeps **61.2 in every case**.
-- **The trade-off.** The plan gives up 7.3 % of the nominal value to avoid a 50 % loss.
+- **The nominal plan (ambient loop, kerosene 115 yen/L).** With every data center at its nominal IT load, the best plan earns 66.0. It serves five sites from the small ZED and road heating from the planned NTT-ME center.
+- **What can go wrong.** At ZED's published average load (0.9 MW, from the city's plan [6]) the plan earns 32.3. If NTT-ME is not built either, it loses money (−0.7).
+- **The robust plan** allows at most one data center at its low IT load and is solved by column-and-constraint generation [31, 33]. It serves the same five sites from No. 1 and keeps **59.7 in every case**, giving up 9.7 % of the nominal value.
+- **Central heat pump.** The nominal plan hangs twelve sites on ZED and loses money if ZED runs low (−1.4). The robust plan keeps 37.3, at a price of 1.8 %.
+
+### Planning for uncertainty pays
+
+With the ambient loop, the two-stage stochastic plan earns 93.8 in expectation. A plan built for the average scenario earns 79.0 on the same scenarios. The value of the stochastic solution is **14.8 per year**.
 
 ### The low-temperature loop wins once heat pumps are paid for
 
-An ambient loop at about 30 °C puts heat pumps at the users, and the fish farm and the road heating take the heat directly. It earns **85.3** in expectation, against **62.6** for a central heat pump feeding a 60 °C network.
+The stochastic plan with an ambient loop earns **93.8** in expectation, against **81.5** for a central heat pump feeding a 60 °C network. The ambient loop runs at about 30 °C with heat pumps at the users, and the fish farm and the road heating take the heat directly. At today's kerosene price, the ambient plan connects 16 sites with 10.7 km of pipe and earns 140.3 per year; this is the plan in the animation above.
 
 ### Caveats
 
-- **Optimality.** Plans come from an LP-guided kernel search, not a certified optimum: the gaps against HiGHS bounds are 13–21 %.
+- **Optimality.** Plans come from an LP-guided kernel search, not a certified optimum: the gaps against HiGHS bounds are 13–25 %.
 - **Positions.** Two data-center positions are approximate and one is a placeholder.
 - **Model scope.** The model balances energy month by month, and heat losses are a flat percentage. Distance-dependent losses are next.
 

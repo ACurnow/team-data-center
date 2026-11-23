@@ -296,7 +296,7 @@ The gap to the LP bound is reported, and was 13–21 % in our runs. **The plans 
 
 ## 8. Checks
 
-**Against version 1.** Restrict version 2 to one data center, one very large pipe size at 100,000 yen/m, a central COP of 4, no loss and kerosene at 115 yen/L. It then reproduces version 1 exactly: 15 sites, 16.1 km and 137.5 M yen/yr.
+**Against version 1.** Restrict version 2 to one data center, one very large pipe size at 100,000 yen/m, a central COP of 4, no loss and kerosene at 115 yen/L. On the earlier 40-site candidate set it then reproduces version 1 exactly: 15 sites, 16.1 km and 137.5 M yen/yr. On the current 50-site set it matches version 1 within the solver's gap: 159.3 against 159.8 M yen/yr, 24 sites.
 
 **Unit tests** (`tests/test_heatnet.py`) on a synthetic instance check:
 - the per-data-center waste-heat limits;
