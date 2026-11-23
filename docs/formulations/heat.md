@@ -92,34 +92,48 @@ $$\mathrm{net}_\omega = \sum v_{u\omega}\, s_{udt\omega} - \mathrm{CRF} \sum c_k
 
 **Check against v1.** Restricted to one data center, one large pipe size at 100,000 yen/m, COP 4 and no loss, version 2 reproduces version 1 exactly: 15 sites, 16.1 km, 137.5 M yen/year.
 
-### Results so far / これまでの結果
+### Results so far, heat-pump investment included / これまでの結果（ヒートポンプの設備費込み）
 
-There are four scenarios with equal weights: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. Values are annual net benefits in million yen.
+Four scenarios with equal weights: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. Heat pumps cost 150 M yen/MW at the users (assumption) and 100 M yen/MW centrally (Odense data). Annual net benefit, million yen. Run logs: `results/` (commit fe6fdf9 and 86ef0cf).
 
-| Mode | Plan | Sites | Pipe km | Expected | Worst case | Max regret |
-|---|---|---|---|---|---|---|
-| ambient | stochastic | 8 | 8.4 | 127.8 | 85.2 | 19.6 |
-| ambient | worst case | 8 | 5.7 | 122.0 | 88.1 | 34.0 |
-| ambient | min-max regret | 11 | 10.2 | 123.4 | 73.1 | 15.0 |
-| central | stochastic | 12 | 10.2 | 118.1 | 66.7 | 17.8 |
-| central | worst case | 10 | 7.5 | 112.5 | 67.9 | 30.1 |
-| central | min-max regret | 12 | 13.4 | 115.9 | 54.3 | 14.2 |
+| Mode | Plan | Sites | Pipe km | Expected | Worst case | Max regret | Payback |
+|---|---|---|---|---|---|---|---|
+| ambient | stochastic | 6 | 5.0 | 85.3 | 59.9 | 17.8 | 8.7 y |
+| ambient | worst case | 5 | 3.0 | 80.6 | 61.2 | 28.6 | 5.9 y |
+| ambient | min-max regret | 6 | 5.0 | 85.3 | 59.9 | 17.8 | 8.7 y |
+| central | stochastic | 10 | 7.5 | 62.6 | 17.9 | 14.8 | 11.9 y |
+| central | worst case | 5 | 3.0 | 52.1 | 32.7 | 36.1 | 6.7 y |
+| central | min-max regret | 8 | 6.3 | 62.1 | 25.0 | 8.3 | 10.8 y |
+
+- Without heat-pump investment the stochastic plans reach 121.5 (ambient, 8 sites) and 115.8 (central, 13 sites).
+- Value of the stochastic solution: 0.4 (ambient), 2.6 (central). Expected value of perfect information: 9.0 and 7.5.
+
+**Each data center on its own: optimized network vs the top-5 pairs** (expected net)
+
+| Data center | Ambient, optimized | Ambient, pairs | Central, optimized | Central, pairs |
+|---|---|---|---|---|
+| No. 1 | 84.5 | 65.3 | 62.6 | 40.4 |
+| Sakura | 81.6 | 58.4 | 59.5 | 37.2 |
+| ZED | 80.6 | 59.6 | 52.1 | 36.8 |
+| NTT-ME (planned) | 3.8 | 0.8 | 0.0 | 0.0 |
+
+The pair-by-pair approach reaches 63–77 % of the optimized network.
 
 **Robust sweep over Γ** (kerosene at 115 yen/L):
-- *Central mode.* The Γ = 0 plan earns 70.4 and relies partly on the planned NTT-ME center. If that center is not built, the plan falls to 50.5. The Γ = 1 robust plan keeps 67.9 in every case, so the price of robustness is 3.6 %.
-- *Ambient mode.* The Γ = 0 plan falls from 92.6 to 59.5, while the robust plan keeps 87.8 (a price of 5.2 %).
+- *Ambient.* The Γ = 0 plan earns 66.0 but connects one site to the planned NTT-ME center. If that center runs low or is not built, the plan falls to 33.0. The robust plan for every Γ ≥ 1 (5 sites on ZED) keeps 61.2 in every case, so the price of robustness is 7.3 %.
+- *Central.* With heat-pump investment, every Γ gives the same robust plan: 5 sites on ZED, 32.7.
 
 **What the results say.**
-- Once four data centers are counted, waste heat is plentiful in the port area. IT-load uncertainty matters mostly when a plan leans on a small or planned center.
-- The kerosene price drives the plan, and regret is the clearest way to show it.
-- Heat-pump investment is off by default. With it on (assumptions: 150 M yen/MW at users, 100 M yen/MW central), the expected net falls to 78.1 (6 sites, ambient) and 62.3 (9 sites, central).
+- Once heat pumps are paid for, the ambient loop clearly beats the central heat pump (85.3 against 62.6 expected), because the fish farm and snow melting take the heat directly.
+- Waste heat is plentiful in the port area once four data centers are counted. IT-load uncertainty therefore matters mainly when a plan leans on a small or planned center.
+- The kerosene price drives the plan. Regret shows its effect most clearly.
 
 **Caveats.**
-- The locations of No. 1 and ZED are approximate, and NTT-ME's is a placeholder. The assignments depend on these locations; Sakura gets no partners in the regional plans.
+- The locations of No. 1 and ZED are approximate, and NTT-ME's is a placeholder. The robust plans pick ZED, so these locations must be checked before any conclusion is drawn. Sakura gets no partners in the regional plans.
 - No. 1's top partner is the assumed fish farm, at a placeholder location.
-- The model works with monthly energy only: no hourly peaks and no storage.
-- In ambient mode the largest size (DN250) carries 4.6 MW; larger trunk sizes should be added.
-- The peak factors, temperatures, velocities and the pipe-cost line are all assumptions.
+- The model uses monthly energy only, with no hourly peaks and no storage.
+- In ambient mode the largest pipe size (DN250) carries 4.6 MW; larger trunk sizes should be added.
+- The peak factors, temperatures, velocities, the pipe-cost line and the heat-pump cost at the users are assumptions.
 
 ## Open questions / 未解決の問い
 
