@@ -120,6 +120,10 @@ def pipe_cost_yen_m(dn: float) -> float:
 PIPE_COST_BASIS = ("assumption: straight line through the 2019 quotes for small two-pipe pre-insulated steel "
                    "networks (25A about 40,000, 250A about 250,000 yen per metre of route, direct cost) plus "
                    "about 33 % overhead, read off the charts in " + URL["pipe"])
+HP_COST_BASIS = ("users: assumption for small heat pumps (100 kW to 2 MW), to check with makers; central: about "
+                 "EUR 0.65M per MW of heat at Odense (two ammonia heat pumps, 44.6 MW, DKK 215M; Dansk Fjernvarme, "
+                 "https://danskfjernvarme.dk/media/eqbhcqlv/inspirationskatalog-for-store-varmepumper-2022.pdf), "
+                 "taken as 100M yen/MW (assumption, including the exchange rate)")
 PIPE_SIZES = tuple(PipeSize(dn, d / 1000, v, pipe_cost_yen_m(dn)) for dn, d, v in [
     (50, 52.9, 1.0), (80, 80.7, 1.2), (100, 105.3, 1.5), (150, 155.2, 1.8), (200, 204.7, 2.0), (250, 254.2, 2.2)])
 
@@ -144,8 +148,8 @@ class Params:
     years: int = 30                  # assumption (as v1): pipe life for the annuity
     rate: float = 0.03               # assumption (as v1): real discount rate
     hp_years: int = 20               # assumption: heat-pump life for the annuity
-    hp_yen_per_mw_user: float = 0.0     # heat pumps at the users, yen per MW of heat; off by default
-    hp_yen_per_mw_central: float = 0.0  # central heat pump, yen per MW of heat; off by default
+    hp_yen_per_mw_user: float = 150e6   # heat pumps at the users, yen per MW of heat (HP_COST_BASIS)
+    hp_yen_per_mw_central: float = 100e6  # central heat pump, yen per MW of heat (HP_COST_BASIS)
     alpha: float = 1.0               # share of each user's peak the pipes and heat pumps are sized for
     sizes: tuple = PIPE_SIZES
     supply_c: dict = field(default_factory=lambda: dict(SUPPLY_C))
@@ -1141,7 +1145,7 @@ def pair_calculator(inst: Instance, P: Params, scens: list[Scenario], d: int, u:
          f"smallest size carrying {ud.q[u]:.2f} MW at dT {P.dT:g} K; JIS G 3452 diameters, design velocities (assumption)"),
         ("capex", "導管の工事費", "Pipe investment", round(pipe), "yen", "assumption", PIPE_COST_BASIS),
         ("hp", "ヒートポンプの投資", "Heat-pump investment", round(float(ud.hp[u])), "yen", "assumption",
-         "off unless hp_yen_per_mw_* is set"),
+         HP_COST_BASIS),
         ("heat", "年間に届く熱（期待値）", "Heat delivered per year (expected)", round(float(prob @ heat_w)), "MWh",
          "calculated", "monthly demand, coverage and the data center's waste heat (IT load x recovery, assumptions)"),
     ]
@@ -1182,7 +1186,7 @@ def assumptions_table(P: Params) -> list[dict]:
         ("years", "導管の年数・割引率", "Pipe life, discount rate", f"{P.years} / {P.rate:.0%}", "", "assumption (as v1)"),
         ("hp_years", "ヒートポンプの年数", "Heat-pump life", P.hp_years, "years", "assumption"),
         ("hp_capex", "ヒートポンプの投資", "Heat-pump investment", f"{P.hp_yen_per_mw_user:,.0f} / {P.hp_yen_per_mw_central:,.0f}",
-         "yen/MW", "user / central; off by default (to verify with makers)"),
+         "yen/MW", "user / central; " + HP_COST_BASIS),
         ("alpha", "管とヒートポンプの容量（ピーク比）", "Sized share of each user's peak", P.alpha, "", "assumption"),
         ("peak", "ピーク係数", "Peak factors", ", ".join(f"{k} {v:g}" for k, v in P.peak_factor.items()), "", PEAK_BASIS),
         ("pipe_cost", "導管の単価", "Pipe cost per metre", ", ".join(f"DN{s.dn} {s.yen_m:,.0f}" for s in P.sizes), "yen/m", PIPE_COST_BASIS),

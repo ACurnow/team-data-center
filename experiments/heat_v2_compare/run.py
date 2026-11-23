@@ -76,6 +76,7 @@ def main() -> None:
     print("\n== v2 restricted to v1 (Sakura only, one size at 100,000 yen/m, central, COP 4, no loss, 115 yen/L)")
     sak = inst.subset([1], list(range(inst.U)))
     Pv1 = Params(mode="central", cop_override=4.0, loss_override=0.0, dc_links=1, time_limit=args.tl,
+                 hp_yen_per_mw_user=0.0, hp_yen_per_mw_central=0.0,
                  sizes=(PipeSize(999, 10.0, 3.0, 100_000.0),))
     v1sc = [Scenario("v1", "v1", "v1", 1.0, 115.0, None, (("sakura", 10.0),))]
     print(line("v2 as v1 (direct MILP)", plan_for(sak, Pv1, v1sc, method="direct")))
@@ -141,8 +142,8 @@ def main() -> None:
                 print(f"  calculator: {inst.sources[0].name_en} x {best[0]['site'].name_en}")
                 for r in pair_calculator(inst, P, scens, 0, best[0]["u"]):
                     print(f"     {r['en'][:44]:44s} {str(r['value'])[:30]:>30s} {r['unit']:6s} [{r['tag']}]")
-        hp = Params(mode=mode, time_limit=args.tl, hp_yen_per_mw_user=150e6, hp_yen_per_mw_central=100e6)
-        print(line("with heat-pump investment", solve_kernel(inst, hp, scens)))
+        nohp = Params(mode=mode, time_limit=args.tl, hp_yen_per_mw_user=0.0, hp_yen_per_mw_central=0.0)
+        print(line("without heat-pump investment", solve_kernel(inst, nohp, scens)))
 
     print("\n== assumptions (ambient defaults)")
     for r in assumptions_table(Params()):
