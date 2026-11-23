@@ -190,3 +190,11 @@ def test_ccg_matches_max_min_over_all_corners():
     best = float(direct.net.min())
     assert abs(out["value"] - best) <= 1e-3 * max(1.0, abs(best))
     assert out["history"][-1]["worst"] in [c.key for c in out["corners"]]
+
+
+def test_pairwise_with_no_profitable_pair_builds_nothing():
+    from dcopt.heat.network import pairwise
+    # central mode: every user needs the central heat pump, which is priced so that no pair pays back
+    P = Params(mode="central", mip_rel_gap=0.0, hp_yen_per_mw_central=1e12)
+    plan = pairwise(tiny(), P, SCENS, 0)
+    assert not plan.connected and plan.pipe_m == 0

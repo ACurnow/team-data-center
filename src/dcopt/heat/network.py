@@ -833,7 +833,7 @@ def solve(inst: Instance, P: Params, scens: list[Scenario], *, objective: str = 
     z = xv[o["z"]:o["g"]].reshape(U, D)
     assign = np.where(xs > 0.5, z.argmax(axis=1), -1) if U else np.zeros(0, int)
     s = np.clip(xv[o["s"]:nv].reshape(U, D, T, Wn), 0.0, None)
-    g = xv[o["g"]:o["s"]].reshape(U, 2 * nE, -1).sum(axis=2)
+    g = xv[o["g"]:o["s"]].reshape(U, 2 * nE, -1).sum(axis=2) if nE else np.zeros((U, 0))
     plan = Plan(inst, P, list(scens), m.E, y, xs, assign, s, g, m.ud, m.Wc, res["status"],
                 time.perf_counter() - t0, res["gap"], objective,
                 float(xv[nv]) if objective != "expected" else None, list(own_opt) if own_opt is not None else None)
@@ -1078,6 +1078,8 @@ def pairwise(inst: Instance, P: Params, scens: list[Scenario], d: int, top: int 
     ud, Wc = user_data(inst, P, scens), waste_heat(inst, P, scens)
     scores = [sc for u in range(inst.U) if (sc := pair_score(inst, P, scens, d, u, ud, Wc)) is not None]
     best = [sc["u"] for sc in sorted(scores, key=lambda r: -r["score"])[:top] if sc["score"] > 0]
+    if not best:                                   # no pair pays for itself: nothing is built
+        return solve(inst.subset([d], [0]), P, scens, edges=[], force_edges=True)
     sub = inst.subset([d], best)
     return solve(sub, P, scens, edges=[(0, 1 + i) for i in range(len(best))], force_edges=True)
 
