@@ -163,7 +163,6 @@ def main() -> None:
     delivered = np.array(plan["delivered_month"], float)
     waste = np.array(plan["waste_month"], float)
     sites = plan["sites"]
-    served_peak = max([max(s["served"]) for s in sites if s["dc"]] or [1])
     active = {s["dc"] for s in sites if s["dc"]}
     counts: dict[str, int] = {}
     for s in sites:
