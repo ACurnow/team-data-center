@@ -359,7 +359,6 @@ def standalone_and_shared(d: Design, dc: Site) -> list[dict]:
     and inside the network (the cost of each built pipe shared by the users downstream of it,
     in proportion to the heat they take)."""
     A = d.A
-    nodes = [dc] + d.sites
     dist0 = road_distance_matrix([dc.node] + [s.node for s in d.sites], AREA)[0, 1:]
     adj: dict[int, list[tuple[int, float]]] = {}
     for a, b, m in d.edges:

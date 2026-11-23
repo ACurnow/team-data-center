@@ -5,7 +5,6 @@ Run with the main app: uv run streamlit run streamlit_app.py  (this is its secon
 from __future__ import annotations
 
 import math
-from dataclasses import replace
 
 import altair as alt
 import folium
@@ -14,7 +13,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from dcopt.common.geo import paths
-from dcopt.heat.v1 import (JMA_SOURCE, KINDS, MONTHS_EN, MONTHS_JA, SNOW, TEMP, Assumptions, design,
+from dcopt.heat.v1 import (JMA_SOURCE, KINDS, MONTHS_EN, MONTHS_JA, Assumptions, design,
                          ishikari_sites, pairwise, standalone_and_shared)
 from dcopt.common.style import FONT, GRID, INK, INK2, SLOTS, SURFACE
 from dcopt.common.style import GSI_ATTR, GSI_PALE
