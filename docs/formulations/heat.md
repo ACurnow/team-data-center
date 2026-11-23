@@ -6,7 +6,7 @@ The model decides which heat users to connect to which data center, along which 
 
 ## Prototype formulation (v1)
 
-**Sets.** Node $0$ is the data center. $U$ is the set of users. The candidate street links $E$ are each node's 3 nearest neighbours by road distance plus direct links from the data center, all within 8 km. The arcs $A$ are both directions of each link. The months are $T = \{1,\dots,12\}$.
+**Sets.** Node $0$ is the data center. $U$ is the set of users. The candidate street links $E$ are each node's 3 nearest neighbours by road distance plus direct links from the data center, all within 8 km. The arcs $A$ are both directions of each link. The months are $T = \lbrace 1,\dots,12\rbrace$.
 
 **Data.**
 - $\ell_e$: road length of link $e$
@@ -18,16 +18,18 @@ The model decides which heat users to connect to which data center, along which 
 - $v$: value per MWh delivered, equal to the avoided kerosene cost minus the heat-pump electricity cost
 
 **Variables.**
-- $y_e \in \{0,1\}$: build link $e$
-- $x_u \in \{0,1\}$: connect user $u$
+- $y_e \in \lbrace 0,1\rbrace$: build link $e$
+- $x_u \in \lbrace 0,1\rbrace$: connect user $u$
 - $g_{ua} \in [0,1]$: flow of user $u$'s commodity on arc $a$
 - $s_{ut} \ge 0$: heat delivered to $u$ in month $t$
 
-$$\max \; \sum_{u \in U}\sum_{t \in T} v\, s_{ut} \;-\; \sum_{e \in E} \mathrm{CRF}\, p\, \ell_e\, y_e$$
+```math
+\max \; \sum_{u \in U}\sum_{t \in T} v\, s_{ut} \;-\; \sum_{e \in E} \mathrm{CRF}\, p\, \ell_e\, y_e
+```
 
 subject to
 - **flow balance** for each user's commodity: one unit leaves node 0 and reaches $u$ when $x_u = 1$;
-- $g_{u,(i,j)} + g_{u,(j,i)} \le y_e$ for each user $u$ and link $e = \{i,j\}$ (strong linking);
+- $g_{u,(i,j)} + g_{u,(j,i)} \le y_e$ for each user $u$ and link $e = \lbrace i,j\rbrace$ (strong linking);
 - $s_{ut} \le D_{ut}\, x_u$ for each user and month;
 - $\sum_{u} (1 - 1/\mathrm{COP})\, s_{ut} \le W_t$ for each month (waste heat available).
 
@@ -46,15 +48,17 @@ This is a prize-collecting Steiner tree with monthly capacities, written in mult
 - $\Omega$: scenarios, with probabilities $p_\omega$.
 
 **First stage.**
-- $y_{ek} \in \{0,1\}$: build link $e$ with size $k$.
-- $x_u \in \{0,1\}$: connect user $u$.
-- $z_{ud} \in \{0,1\}$: user $u$ is served by data center $d$.
+- $y_{ek} \in \lbrace 0,1\rbrace$: build link $e$ with size $k$.
+- $x_u \in \lbrace 0,1\rbrace$: connect user $u$.
+- $z_{ud} \in \lbrace 0,1\rbrace$: user $u$ is served by data center $d$.
 - $g_{ua} \in [0,1]$: share of $u$'s commodity on arc $a$.
 
 **Second stage.** $s_{udt\omega} \ge 0$ is the heat delivered from $d$ to $u$ in month $t$ under scenario $\omega$.
 
 **Net benefit per scenario.**
-$$\mathrm{net}_\omega = \sum v_{u\omega}\, s_{udt\omega} - \mathrm{CRF} \sum c_k \ell_e y_{ek} - \mathrm{CRF}_{hp} \sum h_u x_u$$
+```math
+\mathrm{net}_\omega = \sum v_{u\omega}\, s_{udt\omega} - \mathrm{CRF} \sum c_k \ell_e y_{ek} - \mathrm{CRF}_{hp} \sum h_u x_u
+```
 
 **Objectives.**
 - Expected: $\max \sum_\omega p_\omega\, \mathrm{net}_\omega$.

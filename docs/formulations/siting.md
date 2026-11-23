@@ -10,7 +10,7 @@ This theme chooses where the next data center(s) in Hokkaido should go, from a s
 
 ## Planned formulation
 
-- **Sites.** $J$ is the set of candidate sites. $z_j \in \{0,1\}$ opens site $j$.
+- **Sites.** $J$ is the set of candidate sites. $z_j \in \lbrace 0,1\rbrace$ opens site $j$.
 - **Load.** The IT load at site $j$ is $L_j \le H_j$, where $H_j$ is the hosting capacity from theme 2.
 - **Heat value.** $h_j(L_j)$ is the value of the site's waste heat from theme 1, piecewise linear in the load.
 - **Costs.** Land, grid connection and fiber.

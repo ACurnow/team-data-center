@@ -16,11 +16,11 @@ This page states the model in `src/dcopt/heat/network.py` (version 2) completely
 | $\mathcal D$ | data centers (heat sources): Ishikari RE DC No. 1, Sakura, KCCS ZED, NTT-ME (planned) |
 | $\mathcal U$ | heat users (candidate sites) |
 | $\mathcal N = \mathcal D \cup \mathcal U$ | nodes; $n(u)$ is user $u$'s node |
-| $\mathcal E$ | candidate links $e=\{i,j\}$ between nodes, each a shortest road path |
+| $\mathcal E$ | candidate links $e=\lbrace i,j\rbrace$ between nodes, each a shortest road path |
 | $\mathcal A$ | arcs: both directions $(i,j)$ and $(j,i)$ of every link |
 | $\delta^+(i), \delta^-(i)$ | arcs leaving and entering node $i$ |
 | $\mathcal K$ | pipe sizes DN50, DN80, DN100, DN150, DN200, DN250 |
-| $\mathcal T = \{1,\dots,12\}$ | months |
+| $\mathcal T = \lbrace 1,\dots,12\rbrace$ | months |
 | $\Omega$ | scenarios $\omega$ with probabilities $p_\omega$ |
 
 **Candidate links.** Each node is linked to its $k=3$ nearest nodes by road distance. Each user is also linked to its nearest data center, and the data centers are linked to each other. Links longer than 8 km are dropped. With 4 data centers and 50 users this gives about 150 links.
@@ -33,11 +33,15 @@ Each user $u$ of kind $\kappa(u)$ has an annual heat demand $A_u$ (MWh/yr): a de
 
 The annual demand is spread over the months by a profile $\pi_{\kappa t}$ built from the JMA climate normals for Sapporo, 1991–2020 [12]:
 
-$$D_{ut} = A_u\,\pi_{\kappa(u),t}, \qquad \sum_t \pi_{\kappa t} = 1 .$$
+```math
+D_{ut} = A_u\,\pi_{\kappa(u),t}, \qquad \sum_t \pi_{\kappa t} = 1 .
+```
 
 With mean temperature $\bar\theta_t$, $\mathrm{days}_t$ days in the month and base temperature $T_b$, heating degree-days are
 
-$$\mathrm{HDD}_t(T_b) = \mathrm{days}_t\,\max(0,\;T_b - \bar\theta_t).$$
+```math
+\mathrm{HDD}_t(T_b) = \mathrm{days}_t\,\max(0,\;T_b - \bar\theta_t).
+```
 
 | Profile | $\pi_t$ proportional to | Used for |
 |---|---|---|
@@ -54,17 +58,21 @@ The month has $h_t = 24\,\mathrm{days}_t$ hours, and the mean load is $\mu_{ut} 
 
 **Design peak.** The design peak is the mean load of the heaviest month times a peak factor $f_\kappa$ (an assumption per kind: greenhouses 2.5, snow 3.0, buildings 1.8–2.0, pools, baths and hotels 1.4, fish farm and factory 1.2):
 
-$$P_u = f_{\kappa(u)}\,\max_t \mu_{ut}.$$
+```math
+P_u = f_{\kappa(u)}\,\max_t \mu_{ut}.
+```
 
 **Sizing.** Pipes and heat pumps are sized for $c_u = \alpha P_u$, a share $\alpha$ of the peak ($\alpha=1$ by default). The existing boiler covers anything above $c_u$.
 
 **Energy deliverable in a month.** Within a month, the hourly load is taken as spread evenly between $\underline L = \mu(1-b)$ and $\overline L = \mu(1+b)$, where $b=\min(f-1,1)$. A connection of size $c$ then delivers the expected value of $\min(L, c)$ over the month:
 
-$$\bar s_{ut} = h_t \cdot \begin{cases}
+```math
+\bar s_{ut} = h_t \cdot \begin{cases}
 \mu_{ut} & c_u \ge \overline L \\
 c_u & c_u \le \underline L \\
 \dfrac{(c_u^2-\underline L^2)/2 + c_u\,(\overline L-c_u)}{\overline L-\underline L} & \text{otherwise.}
-\end{cases}$$
+\end{cases}
+```
 
 **Example: a pool in January.**
 - Demand: $A=800$ MWh/yr and $\pi_{\text{Jan}}=0.139$, so $D=111$ MWh and $\mu = 111/744 = 0.149$ MW.
@@ -76,7 +84,9 @@ c_u & c_u \le \underline L \\
 
 **Heat-pump COP.** The COP is a fraction $\eta=0.5$ of the Carnot value, capped at 8. Temperatures are in °C and the lift is at least 1 K:
 
-$$\mathrm{COP}(\theta_h,\theta_c) = \min\Big\{8,\; \eta\,\frac{\theta_h+273.15}{\max(\theta_h-\theta_c,\,1)}\Big\}.$$
+```math
+\mathrm{COP}(\theta_h,\theta_c) = \min\Big\lbrace 8,\; \eta\,\frac{\theta_h+273.15}{\max(\theta_h-\theta_c,\,1)}\Big\rbrace .
+```
 
 **Two network designs (modes).**
 - **Ambient loop.** The loop runs at $\theta_{net}=30$ °C, and each user has its own heat pump. The heat pump lifts from $\theta_{net} - 5$ K $=25$ °C to the user's supply temperature $\theta_u$:
@@ -103,7 +113,9 @@ In ambient mode the pipes carry only the low-temperature part of the heat; the u
 
 Each MWh delivered replaces kerosene burned in a boiler with efficiency $\eta_b = 0.85$. Kerosene's lower heating value is 9.7 kWh/L, so one MWh replaces $1000/(9.7 \times 0.85) = 121.3$ L. With the kerosene price $p^{ker}_\omega$ (yen/L) and the electricity price $p^{el} = 25$ yen/kWh:
 
-$$v_{u\omega} = \frac{1000\,p^{ker}_\omega}{9.7\,\eta_b} - 1000\,p^{el}\,e_u \qquad \text{(yen/MWh)}.$$
+```math
+v_{u\omega} = \frac{1000\,p^{ker}_\omega}{9.7\,\eta_b} - 1000\,p^{el}\,e_u \qquad \text{(yen/MWh)}.
+```
 
 | Kerosene price | Replaced fuel per MWh | Value, direct use ($e_u=0$) | Value with a COP 8 heat pump ($e_u=0.125$) |
 |---|---|---|---|
@@ -116,19 +128,25 @@ $$v_{u\omega} = \frac{1000\,p^{ker}_\omega}{9.7\,\eta_b} - 1000\,p^{el}\,e_u \qq
 
 A pipe of size $k$ is a pre-insulated twin pipe with inner diameter $d_k$ (JIS G 3452) and a design velocity $w_k$ (1.0 m/s at DN50, rising to 2.2 m/s at DN250; an assumption). Its capacity at a supply–return difference $\Delta T$ (10 K ambient, 30 K central) is
 
-$$\bar Q_k = \rho\, w_k\, \frac{\pi d_k^2}{4}\, c_p\, \Delta T \,/\, 1000 \quad \text{(MW)}, \qquad \rho = 990\ \mathrm{kg/m^3},\; c_p = 4.18\ \mathrm{kJ/(kg\,K)}.$$
+```math
+\bar Q_k = \rho\, w_k\, \frac{\pi d_k^2}{4}\, c_p\, \Delta T \,/\, 1000 \quad \text{(MW)}, \qquad \rho = 990\ \mathrm{kg/m^3},\; c_p = 4.18\ \mathrm{kJ/(kg\,K)}.
+```
 
 For example, DN150 has $d=0.1552$ m and $w=1.8$ m/s, so it carries 33.7 kg/s. That is $\bar Q = 1.41$ MW at 10 K and 4.23 MW at 30 K.
 
 Installed cost per metre of route follows a straight line through the 2019 quotes for small networks [15], plus 33 % overhead (an assumption):
 
-$$c_k = 1.33\,\Big(40{,}000 + (\mathrm{DN}_k - 25)\,\frac{210{,}000}{225}\Big)\ \text{yen/m}.$$
+```math
+c_k = 1.33\,\Big(40{,}000 + (\mathrm{DN}_k - 25)\,\frac{210{,}000}{225}\Big)\ \text{yen/m}.
+```
 
 DN150 costs 208,367 yen/m. DN80 costs 121,473 yen/m and carries 0.25 MW (ambient), while DN250 costs 332,500 yen/m and carries 4.62 MW. Per MW carried, the large pipe is about 7 times cheaper.
 
 **Pipe load of a user.** At peak, user $u$ puts this load on every pipe along its path:
 
-$$q_u = c_u\,\sigma_u\,(1+\lambda) = \alpha P_u\,\sigma_u\,(1+\lambda) \quad \text{(MW)}.$$
+```math
+q_u = c_u\,\sigma_u\,(1+\lambda) = \alpha P_u\,\sigma_u\,(1+\lambda) \quad \text{(MW)}.
+```
 
 ### 2.6 Heat pumps, annuities and waste heat
 
@@ -142,7 +160,9 @@ $$q_u = c_u\,\sigma_u\,(1+\lambda) = \alpha P_u\,\sigma_u\,(1+\lambda) \quad \te
 
 **Waste heat.** Data center $d$ in scenario $\omega$ has IT load $L_{d\omega}$ (MW). With a recoverable share $\rho^{rec} = 0.6$ (an assumption), its recoverable waste heat is
 
-$$W_{dt\omega} = L_{d\omega}\, h_t\, \rho^{rec}\quad \text{(MWh)}.$$
+```math
+W_{dt\omega} = L_{d\omega}\, h_t\, \rho^{rec}\quad \text{(MWh)}.
+```
 
 At 10 MW in January this is $10 \times 744 \times 0.6 = 4{,}464$ MWh.
 
@@ -150,9 +170,9 @@ At 10 MW in January this is $10 \times 744 \times 0.6 = 4{,}464$ MWh.
 
 | Variable | Domain | Stage | Meaning |
 |---|---|---|---|
-| $y_{ek}$ | $\{0,1\}$ | 1 | build link $e$ with pipe size $k$ |
-| $x_u$ | $\{0,1\}$ | 1 | connect user $u$ |
-| $z_{ud}$ | $\{0,1\}$ | 1 | user $u$ is served by data center $d$ |
+| $y_{ek}$ | $\lbrace 0,1\rbrace$ | 1 | build link $e$ with pipe size $k$ |
+| $x_u$ | $\lbrace 0,1\rbrace$ | 1 | connect user $u$ |
+| $z_{ud}$ | $\lbrace 0,1\rbrace$ | 1 | user $u$ is served by data center $d$ |
 | $g_{ua}$ | $[0,1]$ | 1 | share of user $u$'s commodity on arc $a$ (its path from its data center) |
 | $s_{udt\omega}$ | $\ge 0$ | 2 | MWh delivered from $d$ to $u$ in month $t$ under scenario $\omega$ |
 
@@ -160,43 +180,59 @@ At 10 MW in January this is $10 \times 744 \times 0.6 = 4{,}464$ MWh.
 
 **(C1) Flow of each user's commodity.** One unit leaves the chosen data center and arrives at the user:
 
-$$\sum_{a\in\delta^+(i)} g_{ua} - \sum_{a\in\delta^-(i)} g_{ua} =
+```math
+\sum_{a\in\delta^+(i)} g_{ua} - \sum_{a\in\delta^-(i)} g_{ua} =
 \begin{cases} z_{ud} & i = d \in \mathcal D\\ -x_u & i = n(u)\\ 0 & \text{otherwise}\end{cases}
-\qquad \forall u,\ i.$$
+\qquad \forall u,\ i.
+```
 
 **(C2) One data center per user.** A connected user is served by exactly one data center; a user that is not connected by none:
 
-$$\sum_{d} z_{ud} = x_u \qquad \forall u.$$
+```math
+\sum_{d} z_{ud} = x_u \qquad \forall u.
+```
 
 **(C3) At most one pipe size per link.**
 
-$$\sum_{k} y_{ek} \le 1 \qquad \forall e.$$
+```math
+\sum_{k} y_{ek} \le 1 \qquad \forall e.
+```
 
 **(C4) Heat runs only on built pipes that are big enough.** User $u$'s commodity may use link $e$ only if a pipe is built there that could carry $u$'s load on its own:
 
-$$g_{u,(i,j)} + g_{u,(j,i)} \le \sum_{k:\ \bar Q_k \ge q_u} y_{ek} \qquad \forall u,\ e=\{i,j\}.$$
+```math
+g_{u,(i,j)} + g_{u,(j,i)} \le \sum_{k:\ \bar Q_k \ge q_u} y_{ek} \qquad \forall u,\ e=\lbrace i,j\rbrace .
+```
 
 This per-commodity linking is what makes the formulation strong. Its LP relaxation is much tighter than one aggregated flow per arc with a big-M link, the form most district-heating MILPs use [25, 26]. Restricting the sum to sizes that fit $q_u$ is valid and tightens it further.
 
 **(C5) Pipe capacity.** The peak loads of all users whose paths use a link must fit the size built:
 
-$$\sum_{u} q_u\,\big(g_{u,(i,j)} + g_{u,(j,i)}\big) \le \sum_{k} \bar Q_k\, y_{ek} \qquad \forall e.$$
+```math
+\sum_{u} q_u\,\big(g_{u,(i,j)} + g_{u,(j,i)}\big) \le \sum_{k} \bar Q_k\, y_{ek} \qquad \forall e.
+```
 
 **(C6) Deliveries only to connected users, from their own data center, within what the connection can deliver.**
 
-$$s_{udt\omega} \le \bar s_{ut}\, z_{ud} \qquad \forall u,d,t,\omega.$$
+```math
+s_{udt\omega} \le \bar s_{ut}\, z_{ud} \qquad \forall u,d,t,\omega.
+```
 
 **(C7) Waste heat available at each data center, each month, in each scenario.**
 
-$$\sum_{u} r_u\, s_{udt\omega} \le W_{dt\omega} \qquad \forall d,t,\omega.$$
+```math
+\sum_{u} r_u\, s_{udt\omega} \le W_{dt\omega} \qquad \forall d,t,\omega.
+```
 
 ## 5. Objectives
 
 The annual net benefit of a plan in scenario $\omega$ is
 
-$$N_\omega = \underbrace{\sum_{u,d,t} v_{u\omega}\, s_{udt\omega}}_{\text{kerosene replaced minus electricity}}
+```math
+N_\omega = \underbrace{\sum_{u,d,t} v_{u\omega}\, s_{udt\omega}}_{\text{kerosene replaced minus electricity}}
 \;-\; \underbrace{\mathrm{CRF}_p \sum_{e,k} c_k\, \ell_e\, y_{ek}}_{\text{pipes}}
-\;-\; \underbrace{\mathrm{CRF}_{hp} \sum_u H_u\, x_u}_{\text{heat pumps}} .$$
+\;-\; \underbrace{\mathrm{CRF}_{hp} \sum_u H_u\, x_u}_{\text{heat pumps}} .
+```
 
 Three objectives are offered. Each is a MILP over (C1)–(C7). For the robust ones a small $\epsilon\,\mathbb E[N]$ ($\epsilon = 10^{-4}$) breaks ties in favor of the better expected value.
 
@@ -214,13 +250,17 @@ Three objectives are offered. Each is a MILP over (C1)–(C7). For the robust on
 
 The IT loads of the data centers are not published; only rough ranges $[L^{lo}_d, L^{hi}_d]$ are known. Following Bertsimas and Sim [31], the uncertainty set lets at most $\Gamma$ data centers sit at their low value at once:
 
-$$\mathcal L(\Gamma) = \big\{L:\ L_d \in \{L^{lo}_d, L^{hi}_d\},\ \ |\{d: L_d = L^{lo}_d\}| \le \Gamma\big\}.$$
+```math
+\mathcal L(\Gamma) = \big\lbrace L:\ L_d \in \lbrace L^{lo}_d, L^{hi}_d\rbrace ,\ \ |\lbrace d: L_d = L^{lo}_d\rbrace | \le \Gamma\big\rbrace .
+```
 
 $\Gamma = 0$ is the nominal plan. $\Gamma = |\mathcal D|$ protects against all data centers at their low value at once.
 
 The two-stage adjustable robust problem [32, 34] is
 
-$$\max_{(y,x,z,g)\,\in\,\mathcal X}\ \ \min_{L\,\in\,\mathcal L(\Gamma)}\ \ \max_{s\,\in\,\mathcal S(y,x,z;\,L)}\ N(y,x,s),$$
+```math
+\max_{(y,x,z,g)\,\in\,\mathcal X}\ \ \min_{L\,\in\,\mathcal L(\Gamma)}\ \ \max_{s\,\in\,\mathcal S(y,x,z;\,L)}\ N(y,x,s),
+```
 
 where $\mathcal X$ is (C1)–(C5) and $\mathcal S$ is (C6)–(C7) with $W_{dt} = L_d h_t \rho^{rec}$.
 
@@ -233,7 +273,9 @@ where $\mathcal X$ is (C1)–(C5) and $\mathcal S$ is (C6)–(C7) with $W_{dt} =
 
 **Price of robustness.** For the plan $x^\Gamma$ built for budget $\Gamma$ and the nominal plan $x^0$:
 
-$$\mathrm{PoR}(\Gamma) = \frac{N^{nom}(x^0)-N^{nom}(x^\Gamma)}{N^{nom}(x^0)}.$$
+```math
+\mathrm{PoR}(\Gamma) = \frac{N^{nom}(x^0)-N^{nom}(x^\Gamma)}{N^{nom}(x^0)}.
+```
 
 **Kerosene stays outside the budget.** In a max-min model of savings, the worst kerosene price is always the lowest one, so the price would never act as a real adversary. Its uncertainty is shown through regret instead.
 
@@ -269,7 +311,9 @@ The gap to the LP bound is reported, and was 13–21 % in our runs. **The plans 
 
 The idea starter asks for five ranked partners per data center. Our baseline is the following.
 1. **Score each user alone.** User $u$ gets its own pipe from data center $d$: the smallest size $k$ with $\bar Q_k \ge q_u$, along the road distance $\ell_{du}$. It also gets all of $d$'s waste heat. Its score is
-   $$\text{score}_{du} = \sum_t v_u \min\!\big(\bar s_{ut},\, W_{dt}/r_u\big) - \mathrm{CRF}_p\, c_k\, \ell_{du} - \mathrm{CRF}_{hp}\, H_u .$$
+   ```math
+   \text{score}_{du} = \sum_t v_u \min\!\big(\bar s_{ut},\, W_{dt}/r_u\big) - \mathrm{CRF}_p\, c_k\, \ell_{du} - \mathrm{CRF}_{hp}\, H_u .
+   ```
 2. **Pick the five best** users with a positive score.
 3. **Build the five pipes** and evaluate them together with the same delivery LP.
 
