@@ -32,8 +32,14 @@ data/curated/       small tables we compiled ourselves, each value with its sour
 
 ```bash
 uv sync
-uv run pytest
+uv run python scripts/fetch_data.py --area ishikari   # map data from OpenStreetMap into data/cache (not committed)
+uv run python scripts/export_heat_story.py            # data for the animated map page
+uv run streamlit run app/streamlit_app.py             # the demo app
+uv run pytest                                         # tests; those that need map data skip without it
 ```
+
+Theme 1, model v1 vs v2: `uv run python experiments/heat_v2_compare/run.py` (several minutes; `--help` lists the options).
+テーマ1のv1とv2の比較：`uv run python experiments/heat_v2_compare/run.py`（数分かかります。`--help`でオプションが出ます）。
 
 ## Solvers and data / ソルバーとデータ
 

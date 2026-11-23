@@ -1,0 +1,938 @@
+<title>Warm Ishikari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a winter-night map of Ishikari is the stage and the story reads down from it.
+   One dark world on purpose: the town sits in the cold and only heat is warm. */
+:root {
+  color-scheme: dark;
+  --night: #09131d;
+  --panel: #0f1d2a;
+  --line: #22384c;
+  --land: #0b1824;
+  --sea: #060d14;
+  --river: #0c2333;
+  --road-0: #13263a;
+  --road-1: #183048;
+  --road-2: #21405d;
+  --road-3: #2a5072;
+  --road-4: #33618a;
+  --coast: #3b5b78;
+  --cityline: #4f6c87;
+  --label: #7189a1;
+  --label-water: #4f7391;
+  --ink: #e9eff5;
+  --ink-2: #a9bacb;
+  --muted: #7d93a8;
+  --heat: #ffc46b;
+  --heat-deep: #ff7a45;
+  --heat-core: #fff4e0;
+  --g-farm: #0ca30c;
+  --g-building: #d55181;
+  --g-snow: #3987e5;
+  --font-display: "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--night); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 1200px; margin: 0 auto; padding-block: 0 72px;
+        padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+        display: grid; gap: 44px; }
+.hero { display: grid; gap: 16px; padding-top: 36px; }
+.topline { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+.eyebrow { font-family: var(--font-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--night); }
+.toggle button { font: inherit; font-size: 13px; line-height: 1.4; background: transparent; color: var(--ink-2); border: 0; padding: 6px 14px; cursor: pointer; }
+.toggle button[aria-pressed="true"] { background: var(--ink); color: var(--night); }
+button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--heat); outline-offset: 2px; }
+h1 { font-family: var(--font-display); font-weight: 900; font-size: clamp(30px, 5vw, 56px); line-height: 1.15; letter-spacing: .01em; margin: 0; max-width: 20em; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--heat); }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.3; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.4; margin: 0; }
+.lede { color: var(--ink-2); max-width: 44em; margin: 0; font-size: 16px; }
+.figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.figure { background: var(--panel); padding: 14px 18px; display: grid; gap: 2px; align-content: start; min-width: 0; }
+.figure b { font-family: var(--font-data); font-weight: 500; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--heat); }
+.figure span { font-size: 13px; color: var(--ink); }
+.figure small { font-size: 12px; color: var(--muted); }
+.caption { font-size: 12.5px; color: var(--muted); margin: 0; }
+@media (max-width: 760px) { .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 318px; gap: 16px; align-items: start; }
+@media (max-width: 980px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.mapcol { display: grid; gap: 12px; min-width: 0; }
+.mapbox { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--land); aspect-ratio: 4 / 3; width: 100%; max-width: 100%; }
+@media (max-width: 600px) { .mapbox { aspect-ratio: 4 / 5; } }
+.mapbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.controls { position: absolute; left: 10px; top: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
+.controls > * { pointer-events: auto; }
+.controls .toggle, .controls select { background: rgba(9, 19, 29, .86); }
+select { font: inherit; font-size: 13px; line-height: 1.4; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; max-width: 100%; }
+.mbadge { position: absolute; left: 10px; bottom: 10px; display: grid; gap: 2px; padding: 10px 14px; border-radius: 10px; background: rgba(9, 19, 29, .84); border: 1px solid var(--line); pointer-events: none; max-width: calc(100% - 20px); }
+.mbadge b { font-family: var(--font-display); font-weight: 900; font-size: clamp(22px, 3vw, 32px); line-height: 1.1; }
+.mbadge span { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.meter { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-family: var(--font-data); font-size: 12px; color: var(--heat); }
+.meter i { display: block; width: 140px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.meter i i { height: 100%; width: 0; border-radius: 3px; background: var(--heat); transition: width .5s ease; }
+@media (prefers-reduced-motion: reduce) { .meter i i { transition: none; } }
+.tip { position: absolute; z-index: 3; pointer-events: none; background: rgba(9, 19, 29, .96); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.55; width: max-content; max-width: 270px; }
+.tip b { font-weight: 700; }
+.tip .src { color: var(--muted); font-size: 11.5px; }
+.loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--ink-2); font-size: 14px; }
+
+.side { display: grid; gap: 12px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.kpi { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kpi th, .kpi td { padding: 5px 0; border-bottom: 1px solid var(--line); text-align: right; font-weight: 400; }
+.kpi th:first-child, .kpi td:first-child { text-align: left; color: var(--ink-2); padding-right: 8px; }
+.kpi thead th { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
+.kpi thead th.on { color: var(--heat); }
+.kpi td.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; color: var(--muted); padding-left: 10px; white-space: nowrap; }
+.kpi td.num.on { color: var(--ink); }
+.kpi tr:first-child td.num.on { color: var(--heat); font-size: 15px; }
+.kpi tr:last-child td { border-bottom: 0; }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+.legend { display: grid; gap: 7px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sw { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.sw.ring { background: transparent; border: 1.5px solid var(--ink); }
+.sw.dash { background: transparent; border: 1.5px dashed var(--ink-2); }
+.sw.dc { background: var(--heat-core); box-shadow: 0 0 8px 2px var(--heat); }
+.sw.pipe { width: 22px; height: 4px; border-radius: 2px; background: var(--heat); box-shadow: 0 0 6px var(--heat-deep); }
+
+.timeline { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: end; }
+.play { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; font-size: 13px; line-height: 1; }
+.months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; }
+.months button { font: inherit; background: transparent; border: 0; border-radius: 6px; padding: 4px 0; cursor: pointer; color: var(--muted); display: grid; gap: 3px; justify-items: center; min-width: 0; }
+.months button:hover { background: var(--panel); }
+.months .tc { font-family: var(--font-data); font-size: 10.5px; color: var(--ink-2); }
+.months .snow { width: 8px; border-radius: 2px 2px 0 0; background: var(--ink-2); align-self: end; }
+.months .bar { height: 28px; display: flex; align-items: flex-end; }
+.months .mn { font-family: var(--font-data); font-size: 11.5px; white-space: nowrap; }
+.months button[aria-pressed="true"] { background: var(--panel); }
+.months button[aria-pressed="true"] .mn { color: var(--heat); }
+
+section { display: grid; gap: 16px; min-width: 0; }
+.prose { color: var(--ink-2); max-width: 46em; margin: 0; }
+.chartcard { position: relative; overflow: hidden; }
+.chartscroll { overflow-x: auto; }
+.chartscroll svg { display: block; width: 100%; min-width: 600px; height: auto; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-family: var(--font-data); font-size: 11px; }
+.chart .mlab { fill: var(--ink-2); font-family: var(--font-data); font-size: 11.5px; }
+.chart .mlab.on { fill: var(--heat); }
+.chart .band { fill: var(--ink); fill-opacity: .05; }
+.chart .band.hover { fill-opacity: .08; }
+.chart .farm { fill: var(--g-farm); }
+.chart .building { fill: var(--g-building); }
+.chart .snow { fill: var(--g-snow); }
+.chart .supply { fill: none; stroke: var(--ink); stroke-width: 2; }
+.chart .demand { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .dot { fill: var(--ink); stroke: var(--panel); stroke-width: 2; }
+.chart .dlab { fill: var(--ink-2); font-size: 12px; font-family: var(--font-body); }
+.chart .hit { fill: transparent; cursor: pointer; }
+.keys { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12.5px; color: var(--ink-2); }
+.keys span { display: inline-flex; align-items: center; gap: 7px; }
+.keys .sq { width: 12px; height: 12px; border-radius: 3px; }
+.keys .ln { width: 20px; height: 0; border-top: 2px solid var(--ink); }
+.keys .ln.dash { border-top: 2px dashed var(--ink-2); }
+.reasons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 880px) { .reasons { grid-template-columns: minmax(0, 1fr); } }
+.reason { align-content: start; }
+.reason p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.data { width: 100%; min-width: 660px; border-collapse: collapse; font-size: 13.5px; }
+.data th, .data td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.data th { font-weight: 500; font-size: 12px; color: var(--ink-2); background: var(--panel); white-space: nowrap; }
+.data td.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.data th.num { text-align: right; }
+.data tr:last-child td { border-bottom: 0; }
+.verdict { display: inline-block; font-size: 12px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+.verdict.flip { border-color: var(--heat); color: var(--heat); }
+details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+details > div { display: grid; gap: 12px; margin-top: 12px; }
+summary { cursor: pointer; font-weight: 500; }
+.formula { font-family: var(--font-data); font-size: 13px; line-height: 1.7; color: var(--ink); background: var(--night); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; white-space: pre; overflow-x: auto; margin: 0; }
+.symbols { margin: 0; padding-left: 1.2em; color: var(--ink-2); font-size: 14px; display: grid; gap: 4px; }
+.next { border-style: dashed; }
+.tag { font-family: var(--font-data); font-size: 11px; letter-spacing: .06em; color: var(--heat); border: 1px solid var(--heat); border-radius: 999px; padding: 1px 9px; justify-self: start; }
+footer { color: var(--muted); font-size: 12.5px; display: grid; gap: 4px; }
+footer a { color: var(--ink-2); }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topline">
+      <div class="eyebrow" data-t="eyebrow"></div>
+      <div class="toggle" role="group" aria-label="Language">
+        <button type="button" id="lang-ja" aria-pressed="true">日本語</button>
+        <button type="button" id="lang-en" aria-pressed="false">English</button>
+      </div>
+    </div>
+    <h1 id="title"></h1>
+    <p class="lede" data-t="lede"></p>
+    <div class="figures" id="figures"></div>
+    <p class="caption" data-t="figCap"></p>
+  </header>
+
+  <section class="stage" aria-labelledby="title">
+    <div class="mapcol">
+      <div class="mapbox" id="mapbox" role="img">
+        <canvas id="c-base" aria-hidden="true"></canvas>
+        <canvas id="c-net" aria-hidden="true"></canvas>
+        <canvas id="c-flow" aria-hidden="true"></canvas>
+        <div class="controls">
+          <select id="scenario" aria-label="Scenario"></select>
+          <div class="toggle" role="group" id="viewgroup">
+            <button type="button" id="v-opt" aria-pressed="true"></button>
+            <button type="button" id="v-pairs" aria-pressed="false"></button>
+          </div>
+        </div>
+        <div class="mbadge" id="mbadge">
+          <b id="mb-name"></b>
+          <span id="mb-climate"></span>
+          <span id="mb-heat"></span>
+          <div class="meter"><i><i id="mb-bar"></i></i><span id="mb-pct"></span></div>
+        </div>
+        <div class="tip" id="tip" hidden></div>
+        <div class="loading" id="loading" data-t="loading"></div>
+      </div>
+      <div class="timeline">
+        <button type="button" class="play" id="play"></button>
+        <div class="months" id="months"></div>
+      </div>
+      <p class="caption" data-t="timelineNote"></p>
+    </div>
+    <aside class="side">
+      <div class="card">
+        <div class="eyebrow" id="kpi-title"></div>
+        <table class="kpi" id="kpi"></table>
+        <p class="note" data-t="pairsNote"></p>
+      </div>
+      <div class="card">
+        <div class="eyebrow" data-t="legend"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </aside>
+  </section>
+
+  <section>
+    <h2 data-t="chartTitle"></h2>
+    <p class="prose" id="chartnote"></p>
+    <div class="card chartcard">
+      <div class="keys" id="keys"></div>
+      <div class="chartscroll"><svg class="chart" id="chart" role="img"></svg></div>
+      <div class="tip" id="ctip" hidden></div>
+    </div>
+    <details>
+      <summary data-t="tableView"></summary>
+      <div><div class="tablebox"><table class="data" id="monthly"></table></div></div>
+    </details>
+  </section>
+
+  <section>
+    <h2 data-t="whyTitle"></h2>
+    <div class="reasons">
+      <div class="card reason"><h3 data-t="r1h"></h3><p data-t="r1"></p></div>
+      <div class="card reason"><h3 data-t="r2h"></h3><p data-t="r2"></p></div>
+      <div class="card reason"><h3 data-t="r3h"></h3><p data-t="r3"></p></div>
+    </div>
+    <p class="prose" id="flipnote"></p>
+    <div class="tablebox"><table class="data" id="flips"></table></div>
+    <p class="note" data-t="flipHow"></p>
+  </section>
+
+  <section>
+    <div class="card next">
+      <span class="tag" data-t="nextTag"></span>
+      <h2 data-t="gridTitle"></h2>
+      <p class="prose" data-t="gridText"></p>
+    </div>
+  </section>
+
+  <section>
+    <details>
+      <summary data-t="methodTitle"></summary>
+      <div>
+        <p class="prose" id="methodtext"></p>
+        <pre class="formula" id="formula"></pre>
+        <ul class="symbols" id="symbols"></ul>
+      </div>
+    </details>
+    <details>
+      <summary data-t="assumeTitle"></summary>
+      <div><div class="tablebox"><table class="data" id="assume"></table></div></div>
+    </details>
+  </section>
+
+  <footer>
+    <div data-t="credits"></div>
+    <div><a href="https://github.com/ggnsjp/team-data-center" target="_blank" rel="noopener">github.com/ggnsjp/team-data-center</a></div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+const T = {
+  ja: {
+    eyebrow: "Hack × Hokkaido Build Week 2026 · アイデア17 Warm Ishikari",
+    title: "石狩の冬を、<em>データセンターの熱</em>で温める。",
+    lede: "石狩市のデータセンターは一年中、熱を捨てています。その熱を温室・病院・プール・学校・融雪に届けるには、どこに導管を引けばよいのか。実際の道路網と、気象庁の平年値から作った月別の熱需要で、導管ネットワーク全体を最適化しました。",
+    figCap: "標準の前提（IT負荷10MW）での年間の値です。前提はすべてページ下部に載せています。地図の上でシナリオを切り替えられます。",
+    fig1: "百万円／年の純便益", fig2: "か所に熱を届ける", fig3: "年で投資を回収", fig4: "t のCO2を毎年削減",
+    figPairs: (v) => `ペア上位5件では ${v}`, fig4sub: "灯油ボイラーを置き換えた分",
+    loading: "地図を描いています…", loadFail: "データを読み込めませんでした。ページを再読み込みしてください。",
+    opt: "最適化したネットワーク", pairs: "ペア上位5件",
+    kpiTitle: (label) => `${label}・年間`, colOpt: "最適化", colPairs: "ペア上位5件",
+    kNet: "純便益（百万円）", kUsers: "つながる需要家（か所）", kDelivered: "届ける熱（MWh）", kPipe: "導管（km）",
+    kCapex: "投資額（億円）", kPayback: "回収年数（年）", kCo2: "CO2削減（t）", kUsed: "廃熱の利用率",
+    pairsNote: "ペア上位5件：施設ごとにデータセンターから専用管を引く前提で採点し、上位5件をつないだ場合です。",
+    legend: "凡例",
+    farm: "農業・水産（温室・陸上養殖）", building: "建物（病院・学校・プール・温泉）", snow: "融雪",
+    lDc: "データセンター（熱源）", lPipe: "導管（太さはその月の熱量）", lOn: "白い縁：つながる施設",
+    lAssumed: "点線の縁：仮定の候補地", lSize: "円の大きさは年間の熱需要",
+    dcShort: "データセンター", play: "再生", pause: "一時停止",
+    climate: (tc, sn) => `平均 ${tc}℃ · 降雪 ${sn} cm`,
+    heatLine: (d, s) => `届ける熱 ${d} MWh／供給できる熱 ${s} MWh`,
+    monthAria: (m, tc, sn) => `${m}、平均気温${tc}℃、降雪${sn}cm`,
+    timelineNote: "数字は月の平均気温、白い棒は降雪量です（気象庁 平年値 1991〜2020年、札幌）。月を選ぶと地図とグラフが切り替わります。",
+    chartTitle: "熱の需要は冬に集中し、夏は余る",
+    chartNote: (label, pk, pkp, mn, mnp, dj, sj) => `${label}：${pk}は供給できる熱の${pkp}%を届け、${mn}は${mnp}%にとどまります。候補をすべてつないだ場合の1月の需要は${dj} MWhで、供給できる${sj} MWhを${dj > sj ? "上回ります" : "下回ります"}。`,
+    lSupply: "供給できる熱", lDemand: "候補全体の需要", lDelivered: "届ける熱", yUnit: "MWh／月",
+    tableView: "数値で見る", thMonth: "月", thUse: "利用率",
+    whyTitle: "なぜ「上位5件のペア」では足りないのか",
+    r1h: "導管は共有できる",
+    r1: "ペアごとの採点は、需要家ごとにデータセンターから専用の管を引く前提です。小口の需要家は単独では赤字に見えますが、大口へ向かう幹線から枝を出せば安くつながります。",
+    r2h: "熱には上限があり、季節で偏る",
+    r2: "冬は暖房がそろって伸び、夏は熱が余ります。廃熱が半分（5MW）の場合、最適化は1月の熱を使い切り、冬しか使わない融雪をつながず、夏も熱を使う陸上養殖を残します。各施設が熱を独り占めできる前提で1件ずつ採点する方法では、この取捨選択ができません。",
+    r3h: "組み合わせの価値はペアの足し算にならない",
+    r3: "誰をつなぎ、幹線をどこまで延ばすかは、Steiner木と月ごとの熱の上限を同時に解く組み合わせの問題です。課題が求める順位付けも、最適なネットワークの中で各施設が担う費用と便益から出せます。",
+    flipnote: (n, m, label) => `${label}では、最適化したネットワークにつながる${m}か所のうち${n}か所が、専用管なら赤字、ネットワークの中では黒字です。`,
+    flipHow: "ネットワーク内の損益は、各導管の年間費用を、その先で熱を使う施設が使う熱量に応じて分担した値です。単独の損益は、データセンターから専用管を引いて年間の需要をすべて賄う場合です。",
+    thSite: "施設", thKind: "種類", thOwn: "専用管（km）", thAlone: "単独の損益（万円／年）", thShared: "ネットワーク内（万円／年）", thVerdict: "判定",
+    vFlip: "単独は赤字 → ネットワークで黒字", vBoth: "単独でも黒字", vNeither: "どちらも赤字",
+    nextTag: "次の段階", gridTitle: "電力系統は受け止められるか",
+    gridText: "データセンターと導管網のヒートポンプは、冬の電力需要を増やします。系統のどこにどれだけ受け入れる余地があるかを、交流潮流の半正定値計画（SDP）緩和で確かめる機能を追加します。",
+    methodTitle: "数理モデル",
+    methodText: (s) => `賞金付きSteiner木問題（prize-collecting Steiner tree）に、12か月の熱収支を加えた混合整数計画です。需要家ごとに接続フローを持つ強い定式化（多品種フロー）を使い、HiGHSで最適性まで解いています（標準の前提で${s}秒）。導管は道路に沿って敷く前提で、候補の区間は、各地点から道路距離で近い3地点と、データセンターからの直結です。`,
+    symbols: [
+      "x_u：需要家 u をつなぐか（0/1）。y_e：区間 e に導管を敷くか（0/1）",
+      "g_u：需要家 u への接続フロー。データセンターから u まで導管がつながっていることを保証します",
+      "s_ut：月 t に需要家 u へ届ける熱（MWh）。D_ut：その月の熱需要",
+      "W_t：月 t に回収できる廃熱。ヒートポンプは届ける熱の (1 − 1/COP) を廃熱から、1/COP を電気から得ます",
+      "v：熱の価値（灯油代の節約 − ヒートポンプの電気代、円/MWh）。p：導管の工事費（円/m）。ℓ_e：区間の道路距離。CRF：資本回収係数",
+    ],
+    assumeTitle: "前提と出典（選んだシナリオ）", aItem: "項目", aVal: "値", aBasis: "根拠",
+    assumed: "仮定", fromAbove: "上の値から計算",
+    credits: "地図・施設：© OpenStreetMap contributors（ODbL）。気温・降雪：気象庁 平年値（1991〜2020年、札幌）。灯油のCO2排出係数：環境省。その他の値は仮定で、「前提と出典」に載せています。",
+    notConnected: "この案ではつながない", demandYr: (v) => `年間の熱需要 ${v} MWh`, thisMonth: (m, v) => `${m}に届ける熱 ${v} MWh`,
+    pipeTip: (km, v) => `導管 ${km} km・年間 ${v} MWh`,
+  },
+  en: {
+    eyebrow: "Hack × Hokkaido Build Week 2026 · Idea 17 Warm Ishikari",
+    title: "Warming Ishikari's winter with <em>data-center heat</em>",
+    lede: "Ishikari's data center gives off heat all year. Where should pipes run to bring that heat to greenhouses, hospitals, pools, schools and snow melting? We optimized the whole pipe network on the real road map, with monthly heat demand built from Japan Meteorological Agency climate normals.",
+    figCap: "Base case (10 MW IT load), per year. Every assumption is listed at the bottom of the page. Switch scenarios on the map.",
+    fig1: "M yen net benefit a year", fig2: "users receive heat", fig3: "years to pay back", fig4: "t of CO2 cut each year",
+    figPairs: (v) => `Top five pairs: ${v}`, fig4sub: "kerosene boilers replaced",
+    loading: "Drawing the map…", loadFail: "The data did not load. Reload the page to try again.",
+    opt: "Optimized network", pairs: "Top five pairs",
+    kpiTitle: (label) => `${label}, per year`, colOpt: "Optimized", colPairs: "Top 5 pairs",
+    kNet: "Net benefit (M yen)", kUsers: "Users connected", kDelivered: "Heat delivered (MWh)", kPipe: "Pipes (km)",
+    kCapex: "Investment (100M yen)", kPayback: "Payback (years)", kCo2: "CO2 cut (t)", kUsed: "Waste heat used",
+    pairsNote: "Top five pairs: each user scored alone, with its own pipe from the data center, and the best five connected.",
+    legend: "Legend",
+    farm: "Farms and fish (greenhouses, fish farm)", building: "Buildings (hospitals, schools, pools, bath)", snow: "Snow melting",
+    lDc: "Data center (heat source)", lPipe: "Pipe (width = that month's heat)", lOn: "White ring: connected",
+    lAssumed: "Dashed ring: assumed site", lSize: "Circle size = yearly heat demand",
+    dcShort: "Data center", play: "Play", pause: "Pause",
+    climate: (tc, sn) => `Mean ${tc} °C · snowfall ${sn} cm`,
+    heatLine: (d, s) => `Heat delivered ${d} of ${s} MWh available`,
+    monthAria: (m, tc, sn) => `${m}, mean ${tc} °C, snowfall ${sn} cm`,
+    timelineNote: "Numbers are mean temperatures; white bars are snowfall (JMA climate normals 1991–2020, Sapporo). Pick a month to update the map and the chart.",
+    chartTitle: "Heat demand piles up in winter; summer heat goes unused",
+    chartNote: (label, pk, pkp, mn, mnp, dj, sj) => `${label}: in ${pk} the network delivers ${pkp}% of the heat available; in ${mn}, ${mnp}%. With every candidate connected, January would need ${dj} MWh, ${dj > sj ? "more" : "less"} than the ${sj} MWh available.`,
+    lSupply: "Heat available", lDemand: "All candidates' demand", lDelivered: "Heat delivered", yUnit: "MWh per month",
+    tableView: "Show the numbers", thMonth: "Month", thUse: "Used",
+    whyTitle: "Why five ranked pairs fall short",
+    r1h: "Pipes can be shared",
+    r1: "Scoring pairs assumes a separate pipe from the data center to each user. Small users look unprofitable alone, yet a branch off a trunk line to a large user connects them cheaply.",
+    r2h: "Heat is limited and seasonal",
+    r2: "In winter, heating demand rises everywhere at once; in summer, heat is left over. With half the waste heat (5 MW), the optimal network uses all of January's heat, leaves out snow melting, which needs heat only in winter, and keeps the fish farm, which uses heat in summer too. Scoring each user as if it had the heat to itself cannot make that trade-off.",
+    r3h: "A set is worth more than its pairs",
+    r3: "Whom to connect and how far to run the trunk is one combinatorial problem: a Steiner tree with a heat limit in every month. The ranking the brief asks for can come from each user's costs and benefits inside the optimal network.",
+    flipnote: (n, m, label) => `${label}: of the ${m} users the optimized network connects, ${n} lose money on a pipe of their own and pay inside the network.`,
+    flipHow: "In the network, each pipe's yearly cost is shared by the users beyond it, in proportion to the heat they take. Alone means a pipe of its own from the data center, serving its full yearly demand.",
+    thSite: "Site", thKind: "Type", thOwn: "Own pipe (km)", thAlone: "Alone (10k yen/yr)", thShared: "In network (10k yen/yr)", thVerdict: "Verdict",
+    vFlip: "Loses alone, pays in network", vBoth: "Pays alone too", vNeither: "Loses either way",
+    nextTag: "NEXT", gridTitle: "Can the grid take the extra load?",
+    gridText: "The data center and the network's heat pumps add winter power demand. Next we add a check of how much the grid can take, and where, using a semidefinite (SDP) relaxation of AC power flow.",
+    methodTitle: "The model",
+    methodText: (s) => `A prize-collecting Steiner tree with twelve monthly heat balances, written as a mixed-integer program in the strong multi-commodity form (one connection flow per user). HiGHS solves it to proven optimality (${s} s in the base case). Pipes follow roads; candidate links join each site to its three nearest sites by road, plus a direct link from the data center.`,
+    symbols: [
+      "x_u: connect user u (0/1). y_e: build a pipe on link e (0/1)",
+      "g_u: connection flow for user u, which guarantees built pipes from the data center to u",
+      "s_ut: heat delivered to user u in month t (MWh). D_ut: its demand that month",
+      "W_t: waste heat recoverable in month t. A heat pump takes (1 − 1/COP) of the heat it delivers from waste heat and 1/COP from electricity",
+      "v: value of heat (kerosene saved minus heat-pump power, yen/MWh). p: pipe cost (yen/m). ℓ_e: road length of link e. CRF: capital recovery factor",
+    ],
+    assumeTitle: "Assumptions and sources (selected scenario)", aItem: "Item", aVal: "Value", aBasis: "Basis",
+    assumed: "Assumption", fromAbove: "From the values above",
+    credits: "Map and facilities: © OpenStreetMap contributors (ODbL). Temperature and snowfall: JMA climate normals 1991–2020, Sapporo. Kerosene CO2 factor: Ministry of the Environment. Every other value is an assumption, listed under Assumptions and sources.",
+    notConnected: "Not connected in this plan", demandYr: (v) => `Yearly heat demand ${v} MWh`, thisMonth: (m, v) => `${m}: ${v} MWh delivered`,
+    pipeTip: (km, v) => `Pipe ${km} km, ${v} MWh a year`,
+  },
+};
+const GROUP_OF = { greenhouse: "farm", new_greenhouse: "farm", aquaculture: "farm", hospital: "building", school: "building", pool: "building", onsen: "building", snow: "snow" };
+const GROUPS = ["farm", "building", "snow"];
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = (id) => document.getElementById(id);
+const S = { lang: initialLang(), scenario: "base", view: "opt", month: 0, playing: !reduceMotion };
+let story = null, layers = null, C = null, sitesById = {};
+let W = 0, H = 0, DPR = 1, P = null, pipes = [], tween = null, timer = null, lastTs = 0;
+
+function initialLang() {
+  const h = location.hash.replace("#", "");
+  if (h === "ja" || h === "en") return h;
+  return (navigator.language || "ja").toLowerCase().startsWith("ja") ? "ja" : "en";
+}
+const t = (k) => T[S.lang][k];
+const nf = (v, d = 0) => new Intl.NumberFormat(S.lang === "ja" ? "ja-JP" : "en-US", { maximumFractionDigits: d, minimumFractionDigits: d }).format(v);
+const signed = (v, d = 0) => (v > 0 ? "+" : v < 0 ? "−" : "±") + nf(Math.abs(v), d);
+const tnum = (v, d = 1) => (v < 0 ? "−" : "") + nf(Math.abs(v), d);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const monthName = (i) => story.months[S.lang][i];
+const siteName = (s) => (S.lang === "ja" ? s.name : s.name_en);
+const kindLabel = (k) => story.kinds[k][S.lang];
+const scen = () => story.scenarios[S.scenario];
+const current = () => scen()[S.view];
+
+function readColours() {
+  const cs = getComputedStyle(document.documentElement);
+  const g = (n) => cs.getPropertyValue(n).trim();
+  C = { land: g("--land"), sea: g("--sea"), river: g("--river"), roads: [0, 1, 2, 3, 4].map((i) => g(`--road-${i}`)),
+        coast: g("--coast"), cityline: g("--cityline"), label: g("--label"), labelWater: g("--label-water"),
+        heat: g("--heat"), heatDeep: g("--heat-deep"), heatCore: g("--heat-core"), ink: g("--ink"), ink2: g("--ink-2"),
+        muted: g("--muted"), night: g("--night"), farm: g("--g-farm"), building: g("--g-building"), snow: g("--g-snow"),
+        fontBody: g("--font-body"), fontDisplay: g("--font-display"), fontData: g("--font-data") };
+}
+function rgba(hex, a) {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+/* ---------- map ---------- */
+function decodeBase(records) {
+  const meta = records.find((r) => r.layer === "meta");
+  const [x0, y0] = meta.extent, k = meta.scale;
+  const dec = (a) => {
+    const out = new Float64Array(a.length);
+    let x = 0, y = 0;
+    for (let i = 0; i < a.length; i += 2) { x += a[i]; y += a[i + 1]; out[i] = x0 + x / k; out[i + 1] = y0 + y / k; }
+    return out;
+  };
+  const L = { sea: [], river: [], coast: [], city: [], roads: [[], [], [], [], []], labels: [] };
+  for (const r of records) {
+    if (r.layer === "sea") L.sea = r.rings.map(dec);
+    else if (r.layer === "river") L.river = r.rings.map(dec);
+    else if (r.layer === "coast") L.coast = r.lines.map(dec);
+    else if (r.layer === "city") L.city = r.lines.map(dec);
+    else if (r.layer === "road") L.roads[r.class] = r.lines.map(dec);
+    else if (r.layer === "label") L.labels.push(r);
+  }
+  return L;
+}
+
+function fit() {
+  const box = $("mapbox").getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = box.width; H = box.height;
+  for (const id of ["c-base", "c-net", "c-flow"]) {
+    const c = $(id); c.width = Math.round(W * DPR); c.height = Math.round(H * DPR);
+  }
+  const [w0, s0, e0, n0] = story.view;
+  const k = Math.cos(((s0 + n0) / 2) * Math.PI / 180), pad = 0.03;
+  const sc = Math.min((W * (1 - 2 * pad)) / ((e0 - w0) * k), (H * (1 - 2 * pad)) / (n0 - s0));
+  P = { cx: (w0 + e0) / 2, cy: (s0 + n0) / 2, kx: k * sc, ky: sc, kmPx: sc / 111.32 };
+}
+const px = (lon) => W / 2 + (lon - P.cx) * P.kx;
+const py = (lat) => H / 2 - (lat - P.cy) * P.ky;
+
+function trace(ctx, arr, close) {
+  for (let i = 0; i < arr.length; i += 2) {
+    const x = px(arr[i]), y = py(arr[i + 1]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  if (close) ctx.closePath();
+}
+
+function haloText(ctx, text, x, y, fill) {
+  ctx.lineWidth = 3; ctx.strokeStyle = rgba(C.land, 0.9); ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill; ctx.fillText(text, x, y);
+}
+
+function drawBase() {
+  const ctx = $("c-base").getContext("2d");
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = C.land; ctx.fillRect(0, 0, W, H);
+  if (!layers) return;
+  ctx.beginPath(); for (const r of layers.sea) trace(ctx, r, true); ctx.fillStyle = C.sea; ctx.fill("evenodd");
+  ctx.beginPath(); for (const r of layers.river) trace(ctx, r, true); ctx.fillStyle = C.river; ctx.fill("evenodd");
+  const widths = [0.6, 0.8, 1.1, 1.6, 2.2];
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (let c = 0; c < 5; c++) {
+    ctx.beginPath(); for (const l of layers.roads[c]) trace(ctx, l, false);
+    ctx.strokeStyle = C.roads[c]; ctx.lineWidth = widths[c]; ctx.stroke();
+  }
+  ctx.beginPath(); for (const l of layers.coast) trace(ctx, l, false); ctx.strokeStyle = C.coast; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.setLineDash([5, 5]); ctx.beginPath(); for (const l of layers.city) trace(ctx, l, false);
+  ctx.strokeStyle = C.cityline; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const l of layers.labels) {
+    const x = px(l.lon), y = py(l.lat);
+    if (x < 30 || x > W - 30 || y < 50 || y > H - 12) continue;
+    const text = S.lang === "ja" ? l.ja : l.en;
+    if (l.kind === "town") { ctx.font = `700 14px ${C.fontBody}`; haloText(ctx, text, x, y, C.muted); }
+    else if (l.kind === "district") { ctx.font = `500 12px ${C.fontBody}`; haloText(ctx, text, x, y, C.label); }
+    else { ctx.font = `italic 500 13px ${C.fontBody}`; ctx.fillStyle = C.labelWater; ctx.fillText(text, x, y); }
+  }
+  const km = [0.5, 1, 2, 5].find((v) => v * P.kmPx >= 60) || 5;
+  const len = km * P.kmPx, x1 = W - 16, x0 = x1 - len, y = H - 18;
+  ctx.strokeStyle = C.ink2; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x0, y - 4); ctx.lineTo(x0, y); ctx.lineTo(x1, y); ctx.lineTo(x1, y - 4); ctx.stroke();
+  ctx.font = `500 11px ${C.fontData}`; ctx.fillStyle = C.ink2; ctx.textAlign = "center";
+  ctx.fillText(`${km} km`, (x0 + x1) / 2, y - 11);
+}
+
+function maxFlow(net) {
+  let m = 1;
+  for (const p of net.pipes) for (const v of p.monthly) m = Math.max(m, v);
+  return m;
+}
+const partCount = (f, L) => (f > 0.002 && L > 2 ? Math.round(2 + 24 * f * Math.min(1, L / 150)) : 0);
+
+function buildPipes() {
+  const net = current(), mf = maxFlow(net);
+  pipes = net.pipes.map((p) => {
+    const pts = p.path.map(([lon, lat]) => [px(lon), py(lat)]);
+    const seg = []; let L = 0;
+    for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); L += d; }
+    const f = p.monthly[S.month] / mf;
+    return { pts, seg, L, f, fa: f, fb: f, monthly: p.monthly, mf, km: p.km, flow: p.flow,
+             parts: Array.from({ length: partCount(1, L) }, () => Math.random() * Math.max(L, 1)) };
+  });
+}
+
+function pointAt(p, s) {
+  let i = 0;
+  while (i < p.seg.length && s > p.seg[i]) { s -= p.seg[i]; i++; }
+  if (i >= p.seg.length) return p.pts[p.pts.length - 1];
+  const a = p.pts[i], b = p.pts[i + 1], r = p.seg[i] ? s / p.seg[i] : 0;
+  return [a[0] + (b[0] - a[0]) * r, a[1] + (b[1] - a[1]) * r];
+}
+
+function drawNet() {
+  const ctx = $("c-net").getContext("2d");
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const net = current(), sc = scen();
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const p of pipes) {
+    const f = Math.max(0, p.f);
+    ctx.beginPath(); p.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    if (f > 0.002) {
+      ctx.strokeStyle = rgba(C.heatDeep, 0.1 + 0.22 * f); ctx.lineWidth = 3 + 13 * Math.sqrt(f); ctx.stroke();
+      ctx.strokeStyle = rgba(C.heat, 0.4 + 0.55 * f); ctx.lineWidth = 1.2 + 3 * Math.sqrt(f); ctx.stroke();
+    } else {
+      ctx.strokeStyle = rgba(C.heat, 0.3); ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+  for (const s of story.sites) {
+    if (!sc.kinds.includes(s.kind)) continue;
+    const x = px(s.lon), y = py(s.lat);
+    if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
+    const r = 3 + 2.1 * Math.sqrt(s.annual / 250);
+    const served = net.served[s.id];
+    const now = served ? served[S.month] : 0;
+    const col = C[GROUP_OF[s.kind]];
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = rgba(col, served ? (now > 0 ? 0.92 : 0.4) : 0.18); ctx.fill();
+    if (s.assumed) ctx.setLineDash([2.5, 2.5]);
+    ctx.lineWidth = served ? 1.6 : 1; ctx.strokeStyle = served ? C.ink : rgba(col, 0.65); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const x = px(story.dc.lon), y = py(story.dc.lat);
+  const g = ctx.createRadialGradient(x, y, 0, x, y, 30);
+  g.addColorStop(0, rgba(C.heatCore, 1)); g.addColorStop(0.3, rgba(C.heat, 0.7)); g.addColorStop(1, rgba(C.heatDeep, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 30, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = C.heatCore; ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fill();
+  ctx.font = `700 12px ${C.fontBody}`; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  haloText(ctx, t("dcShort"), x - 14, y - 14, C.heatCore);
+}
+
+function frame(ts) {
+  const dt = lastTs ? Math.min(50, ts - lastTs) : 16; lastTs = ts;
+  if (tween) {
+    const k = Math.min(1, (ts - tween.t0) / 650), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    for (const p of pipes) p.f = p.fa + (p.fb - p.fa) * e;
+    drawNet();
+    if (k >= 1) tween = null;
+  }
+  const ctx = $("c-flow").getContext("2d");
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.3)"; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = rgba(C.heat, 0.95);
+  for (const p of pipes) {
+    const n = Math.min(p.parts.length, partCount(p.f, p.L));
+    if (!n) continue;
+    const v = (0.025 + 0.09 * p.f) * dt, rad = 1.2 + 1.4 * p.f;
+    for (let i = 0; i < n; i++) {
+      p.parts[i] = (p.parts[i] + v) % p.L;
+      const [x, y] = pointAt(p, p.parts[i]);
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+  requestAnimationFrame(frame);
+}
+
+function staticFlow() {
+  const ctx = $("c-flow").getContext("2d");
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = rgba(C.heat, 0.9);
+  for (const p of pipes) {
+    const n = partCount(p.f, p.L);
+    for (let i = 0; i < n; i++) { const [x, y] = pointAt(p, (p.L * (i + 0.5)) / n); ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 2 * Math.PI); ctx.fill(); }
+  }
+}
+
+function drawMap(rebuild) {
+  if (!story) return;
+  if (rebuild) { fit(); drawBase(); }
+  buildPipes(); drawNet();
+  if (reduceMotion) staticFlow();
+}
+
+/* ---------- month ---------- */
+function setMonth(m) {
+  S.month = m;
+  const net = current(), mf = maxFlow(net);
+  for (const p of pipes) { p.fa = p.f; p.fb = p.monthly[m] / mf; }
+  if (reduceMotion) { for (const p of pipes) p.f = p.fb; drawNet(); staticFlow(); }
+  else tween = { t0: performance.now() };
+  renderMonthUI(); renderChart(); renderBadge();
+}
+function play() {
+  S.playing = true; clearInterval(timer);
+  timer = setInterval(() => setMonth((S.month + 1) % 12), 1800);
+  renderPlay();
+}
+function stop() { S.playing = false; clearInterval(timer); renderPlay(); }
+function renderPlay() {
+  $("play").textContent = S.playing ? "❚❚" : "▶";
+  $("play").setAttribute("aria-label", S.playing ? t("pause") : t("play"));
+}
+
+function delivered(net, m) { return Object.values(net.served).reduce((a, v) => a + v[m], 0); }
+
+function renderBadge() {
+  const net = current(), m = S.month;
+  const d = delivered(net, m), s = net.supply[m], pct = s ? Math.round((100 * d) / s) : 0;
+  $("mb-name").textContent = monthName(m);
+  $("mb-climate").textContent = t("climate")(tnum(story.climate.temp[m]), nf(story.climate.snow[m]));
+  $("mb-heat").textContent = t("heatLine")(nf(d), nf(s));
+  $("mb-bar").style.width = `${Math.min(100, pct)}%`;
+  $("mb-pct").textContent = `${pct}%`;
+  $("mapbox").setAttribute("aria-label", `${current() === scen().opt ? t("opt") : t("pairs")} · ${monthName(m)} · ${t("heatLine")(nf(d), nf(s))}`);
+}
+
+function renderMonthUI() {
+  const box = $("months");
+  if (!box.children.length) {
+    for (let i = 0; i < 12; i++) {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.m = i;
+      b.addEventListener("click", () => { stop(); setMonth(i); });
+      box.appendChild(b);
+    }
+  }
+  const smax = Math.max(...story.climate.snow);
+  [...box.children].forEach((b, i) => {
+    const tc = story.climate.temp[i], sn = story.climate.snow[i];
+    b.innerHTML = `<span class="tc">${tnum(Math.round(tc), 0)}°</span><span class="bar"><i class="snow" style="height:${sn > 0 ? Math.max(2, (26 * sn) / smax) : 0}px"></i></span><span class="mn">${esc(monthName(i))}</span>`;
+    b.setAttribute("aria-pressed", String(i === S.month));
+    b.setAttribute("aria-label", t("monthAria")(monthName(i), tnum(tc), nf(sn)));
+  });
+  renderPlay();
+}
+
+/* ---------- panel, figures ---------- */
+function renderFigures() {
+  const b = story.scenarios.base, o = b.opt.kpi, p = b.pairs.kpi;
+  const cells = [
+    [nf(o.net_m, 1), t("fig1"), t("figPairs")(nf(p.net_m, 1))],
+    [nf(o.users), t("fig2"), t("figPairs")(nf(p.users))],
+    [nf(o.payback, 1), t("fig3"), t("figPairs")(nf(p.payback, 1))],
+    [nf(o.co2_t), t("fig4"), t("fig4sub")],
+  ];
+  $("figures").innerHTML = cells.map(([v, a, b2]) => `<div class="figure"><b>${v}</b><span>${esc(a)}</span><small>${esc(b2)}</small></div>`).join("");
+}
+
+function renderPanel() {
+  const sc = scen(), o = sc.opt.kpi, p = sc.pairs.kpi, on = S.view;
+  $("kpi-title").textContent = t("kpiTitle")(sc.label[S.lang]);
+  const fmtPay = (k) => (k.payback == null ? "—" : nf(k.payback, 1));
+  const rows = [
+    [t("kNet"), nf(o.net_m, 1), nf(p.net_m, 1)], [t("kUsers"), nf(o.users), nf(p.users)],
+    [t("kDelivered"), nf(o.delivered), nf(p.delivered)], [t("kPipe"), nf(o.pipe_km, 1), nf(p.pipe_km, 1)],
+    [t("kCapex"), nf(o.capex_oku, 1), nf(p.capex_oku, 1)], [t("kPayback"), fmtPay(o), fmtPay(p)],
+    [t("kCo2"), nf(o.co2_t), nf(p.co2_t)], [t("kUsed"), `${nf(o.heat_used * 100)}%`, `${nf(p.heat_used * 100)}%`],
+  ];
+  $("kpi").innerHTML = `<thead><tr><th></th><th class="${on === "opt" ? "on" : ""}">${esc(t("colOpt"))}</th><th class="${on === "pairs" ? "on" : ""}">${esc(t("colPairs"))}</th></tr></thead><tbody>` +
+    rows.map(([a, x, y]) => `<tr><td>${esc(a)}</td><td class="num${on === "opt" ? " on" : ""}">${x}</td><td class="num${on === "pairs" ? " on" : ""}">${y}</td></tr>`).join("") + "</tbody>";
+  const groups = GROUPS.filter((g) => sc.kinds.some((k) => GROUP_OF[k] === g));
+  $("legend").innerHTML =
+    `<span><i class="sw dc"></i>${esc(t("lDc"))}</span><span><i class="sw pipe"></i>${esc(t("lPipe"))}</span>` +
+    groups.map((g) => `<span><i class="sw" style="background:var(--g-${g})"></i>${esc(t(g))}</span>`).join("") +
+    `<span><i class="sw ring"></i>${esc(t("lOn"))}</span><span><i class="sw dash"></i>${esc(t("lAssumed"))}</span><span style="color:var(--muted)">${esc(t("lSize"))}</span>`;
+  $("v-opt").setAttribute("aria-pressed", String(on === "opt"));
+  $("v-pairs").setAttribute("aria-pressed", String(on === "pairs"));
+}
+
+/* ---------- chart ---------- */
+function monthlyByGroup(net) {
+  const out = Object.fromEntries(GROUPS.map((g) => [g, Array(12).fill(0)]));
+  for (const [id, arr] of Object.entries(net.served)) arr.forEach((v, i) => (out[GROUP_OF[sitesById[id].kind]][i] += v));
+  return out;
+}
+function candidatesDemand(sc) {
+  const d = Array(12).fill(0);
+  for (const s of story.sites) if (sc.kinds.includes(s.kind)) s.monthly.forEach((v, i) => (d[i] += v));
+  return d;
+}
+
+function renderChart() {
+  const svg = $("chart"), sc = scen(), net = current();
+  const VW = 780, VH = 310, m = { l: 60, r: 132, t: 24, b: 34 }, w = VW - m.l - m.r, h = VH - m.t - m.b;
+  svg.setAttribute("viewBox", `0 0 ${VW} ${VH}`);
+  const byG = monthlyByGroup(net), demand = candidatesDemand(sc);
+  const raw = Math.max(...net.supply, ...demand), step = raw > 8000 ? 2000 : 1000, top = Math.ceil((raw * 1.05) / step) * step;
+  const y = (v) => m.t + h - (v / top) * h, bw = w / 12, x = (i) => m.l + i * bw, cx = (i) => x(i) + bw / 2;
+  let out = `<text class="tick" x="${m.l - 8}" y="${m.t - 10}" text-anchor="end">${esc(t("yUnit"))}</text>`;
+  out += `<rect class="band" x="${x(S.month)}" y="${m.t}" width="${bw}" height="${h}"/>`;
+  for (let v = 0; v <= top; v += step) {
+    out += `<line class="grid" x1="${m.l}" x2="${m.l + w}" y1="${y(v)}" y2="${y(v)}"/><text class="tick" x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${nf(v)}</text>`;
+  }
+  for (let i = 0; i < 12; i++) {
+    let acc = 0;
+    for (const g of GROUPS) {
+      const v = byG[g][i];
+      if (v <= 0) continue;
+      const y0 = y(acc), y1 = y(acc + v), gap = acc > 0 ? 2 : 0;
+      out += `<rect class="${g}" x="${x(i) + bw * 0.2}" y="${y1}" width="${bw * 0.6}" height="${Math.max(0.5, y0 - y1 - gap)}" rx="2"/>`;
+      acc += v;
+    }
+    out += `<text class="mlab${i === S.month ? " on" : ""}" x="${cx(i)}" y="${m.t + h + 21}" text-anchor="middle">${esc(monthName(i))}</text>`;
+  }
+  const path = (arr) => arr.map((v, i) => `${i ? "L" : "M"}${cx(i)},${y(v)}`).join("");
+  out += `<path class="demand" d="${path(demand)}"/><path class="supply" d="${path(net.supply)}"/>`;
+  out += `<circle class="dot" cx="${cx(S.month)}" cy="${y(net.supply[S.month])}" r="4.5"/>`;
+  let ys = y(net.supply[11]), yd = y(demand[11]);
+  if (Math.abs(ys - yd) < 16) { const mid = (ys + yd) / 2, up = ys < yd ? -8 : 8; ys = mid + up; yd = mid - up; }
+  out += `<text class="dlab" x="${cx(11) + 12}" y="${ys + 4}">${esc(t("lSupply"))}</text><text class="dlab" x="${cx(11) + 12}" y="${yd + 4}">${esc(t("lDemand"))}</text>`;
+  for (let i = 0; i < 12; i++) out += `<rect class="hit" data-m="${i}" x="${x(i)}" y="${m.t}" width="${bw}" height="${h + 30}"/>`;
+  svg.innerHTML = out;
+  svg.setAttribute("aria-label", `${t("chartTitle")}. ${sc.label[S.lang]}`);
+  svg.querySelectorAll(".hit").forEach((r) => {
+    const i = +r.dataset.m;
+    r.addEventListener("pointerenter", (ev) => chartTip(ev, i, byG, demand, net));
+    r.addEventListener("pointermove", (ev) => chartTip(ev, i, byG, demand, net));
+    r.addEventListener("pointerleave", () => ($("ctip").hidden = true));
+    r.addEventListener("click", () => { stop(); setMonth(i); });
+  });
+  $("keys").innerHTML = GROUPS.filter((g) => byG[g].some((v) => v > 0))
+    .map((g) => `<span><i class="sq" style="background:var(--g-${g})"></i>${esc(t(g))}</span>`).join("") +
+    `<span><i class="ln"></i>${esc(t("lSupply"))}</span><span><i class="ln dash"></i>${esc(t("lDemand"))}</span>`;
+  renderChartNote(net, demand, sc);
+  renderMonthlyTable(byG, demand, net);
+}
+
+function chartTip(ev, i, byG, demand, net) {
+  const tip = $("ctip"), card = tip.parentElement.getBoundingClientRect();
+  const d = delivered(net, i);
+  tip.innerHTML = `<b>${esc(monthName(i))}</b><br>` +
+    GROUPS.filter((g) => byG[g][i] > 0).map((g) => `${esc(t(g))}: ${nf(byG[g][i])} MWh`).join("<br>") +
+    `<br>${esc(t("lDelivered"))}: ${nf(d)} MWh<br>${esc(t("lSupply"))}: ${nf(net.supply[i])} MWh (${nf(net.supply[i] ? (100 * d) / net.supply[i] : 0)}%)<br>${esc(t("lDemand"))}: ${nf(demand[i])} MWh`;
+  tip.hidden = false;
+  const mx = ev.clientX - card.left, my = ev.clientY - card.top;
+  const left = mx + 16 + tip.offsetWidth > card.width ? mx - 16 - tip.offsetWidth : mx + 16;
+  tip.style.left = `${Math.max(8, left)}px`;
+  tip.style.top = `${Math.max(8, Math.min(my - 20, card.height - tip.offsetHeight - 8))}px`;
+}
+
+function renderChartNote(net, demand, sc) {
+  const use = net.supply.map((s, i) => (s ? delivered(net, i) / s : 0));
+  const pk = use.indexOf(Math.max(...use)), mn = use.indexOf(Math.min(...use));
+  $("chartnote").textContent = t("chartNote")(sc.label[S.lang] + (S.view === "pairs" ? ` · ${t("pairs")}` : ""),
+    monthName(pk), nf(use[pk] * 100), monthName(mn), nf(use[mn] * 100), nf(demand[0]), nf(net.supply[0]));
+}
+
+function renderMonthlyTable(byG, demand, net) {
+  const groups = GROUPS.filter((g) => byG[g].some((v) => v > 0));
+  let html = `<thead><tr><th>${esc(t("thMonth"))}</th>${groups.map((g) => `<th class="num">${esc(t(g))}</th>`).join("")}<th class="num">${esc(t("lDelivered"))}</th><th class="num">${esc(t("lSupply"))}</th><th class="num">${esc(t("thUse"))}</th><th class="num">${esc(t("lDemand"))}</th></tr></thead><tbody>`;
+  for (let i = 0; i < 12; i++) {
+    const d = delivered(net, i);
+    html += `<tr><td>${esc(monthName(i))}</td>${groups.map((g) => `<td class="num">${nf(byG[g][i])}</td>`).join("")}<td class="num">${nf(d)}</td><td class="num">${nf(net.supply[i])}</td><td class="num">${nf(net.supply[i] ? (100 * d) / net.supply[i] : 0)}%</td><td class="num">${nf(demand[i])}</td></tr>`;
+  }
+  $("monthly").innerHTML = html + "</tbody>";
+}
+
+/* ---------- why, method, assumptions ---------- */
+function renderWhy() {
+  const sc = scen(), flips = sc.flips;
+  const isFlip = (f) => f.alone < 0 && f.shared >= 0;
+  $("flipnote").textContent = t("flipnote")(flips.filter(isFlip).length, flips.length, sc.label[S.lang]);
+  const rows = [...flips].sort((a, b) => (isFlip(b) - isFlip(a)) || (b.shared - a.shared));
+  $("flips").innerHTML = `<thead><tr><th>${esc(t("thSite"))}</th><th>${esc(t("thKind"))}</th><th class="num">${esc(t("thOwn"))}</th><th class="num">${esc(t("thAlone"))}</th><th class="num">${esc(t("thShared"))}</th><th>${esc(t("thVerdict"))}</th></tr></thead><tbody>` +
+    rows.map((f) => {
+      const s = sitesById[f.id], flip = isFlip(f);
+      const v = flip ? t("vFlip") : f.alone >= 0 ? t("vBoth") : t("vNeither");
+      return `<tr><td>${esc(siteName(s))}</td><td>${esc(kindLabel(s.kind))}</td><td class="num">${nf(f.own_km, 1)}</td><td class="num">${signed(f.alone)}</td><td class="num">${signed(f.shared)}</td><td><span class="verdict${flip ? " flip" : ""}">${esc(v)}</span></td></tr>`;
+    }).join("") + "</tbody>";
+}
+
+function renderMethod() {
+  $("methodtext").textContent = t("methodText")(nf(story.scenarios.base.solve_s, 1));
+  $("formula").textContent =
+    "max   Σ_u Σ_t v·s_ut  −  Σ_e CRF·p·ℓ_e·y_e\n" +
+    "s.t.  Σ_out g_u − Σ_in g_u = x_u (data center), −x_u (user u), 0 (other nodes)   ∀u\n" +
+    "      g_u(a→b) + g_u(b→a) ≤ y_e                                               ∀u, e\n" +
+    "      s_ut ≤ D_ut · x_u                                                       ∀u, t\n" +
+    "      Σ_u (1 − 1/COP) · s_ut ≤ W_t                                            ∀t\n" +
+    "      y_e, x_u ∈ {0, 1};   0 ≤ g ≤ 1;   s ≥ 0";
+  $("symbols").innerHTML = t("symbols").map((s) => `<li>${esc(s)}</li>`).join("");
+}
+
+function renderAssumptions() {
+  const a = scen().assumptions, ja = S.lang === "ja", A = t("assumed"), net = current();
+  const waste = net.supply.reduce((x, v) => x + v, 0) * (1 - 1 / a.cop);
+  const assumedSites = story.sites.filter((s) => s.assumed && scen().kinds.includes(s.kind)).map(siteName);
+  const rows = [
+    [ja ? "データセンターのIT負荷" : "Data-center IT load", `${nf(a.it_mw)} MW`, A],
+    [ja ? "回収できる廃熱の割合" : "Share of heat recovered", `${nf(a.recovery * 100)}%`, A],
+    [ja ? "回収できる廃熱（年間）" : "Recoverable waste heat (year)", `${nf(waste)} MWh`, t("fromAbove")],
+    [ja ? "ヒートポンプのCOP" : "Heat-pump COP", nf(a.cop, 1), A],
+    [ja ? "灯油価格（ボイラー効率85%）" : "Kerosene price (boiler 85%)", `${nf(a.kerosene)} ${ja ? "円/L" : "yen/L"}`, A],
+    [ja ? "電気料金" : "Electricity price", `${nf(a.power)} ${ja ? "円/kWh" : "yen/kWh"}`, A],
+    [ja ? "熱の価値" : "Value of heat", `${nf(a.value_per_mwh)} ${ja ? "円/MWh" : "yen/MWh"}`, ja ? "灯油代の節約 − ヒートポンプの電気代" : "Kerosene saved minus heat-pump power"],
+    [ja ? "導管の工事費" : "Pipe cost", `${nf(a.pipe_man_per_m)} ${ja ? "万円/m" : "×10k yen/m"}`, A],
+    [ja ? "償却年数・割引率" : "Lifetime, discount rate", `${nf(a.years)} ${ja ? "年" : "years"} · ${nf(a.rate * 100, 1)}%`, A],
+    [ja ? "CO2削減係数" : "CO2 factor", `${nf(a.co2_per_mwh, 3)} t/MWh`, ja ? "灯油 2.49 kg-CO2/L（環境省）。ヒートポンプは再エネ電力を想定" : "Kerosene 2.49 kg-CO2/L (Ministry of the Environment); heat pumps on renewable power"],
+    [ja ? "月別の需要の形" : "Monthly shape of demand", ja ? "暖房度日（建物18℃・温室15℃）、融雪は降雪量" : "Heating degree-days (buildings 18 °C, greenhouses 15 °C); snow melting follows snowfall", story.climate.source],
+    [ja ? "施設の熱需要" : "Heat demand by type", ja ? "温室 0.40 MWh/m²・融雪 0.12 MWh/m²、病院 1,500・温泉 2,000・プール 800・学校 250・新設温室（1ha）4,000・陸上養殖 5,000 MWh/年" : "Greenhouses 0.40 MWh/m², snow melting 0.12 MWh/m²; hospital 1,500, bath 2,000, pool 800, school 250, new 1 ha greenhouse 4,000, fish farm 5,000 MWh a year", A],
+    [ja ? "仮定の候補地" : "Assumed sites", assumedSites.length ? assumedSites.join(ja ? "、" : "; ") : "—", ja ? "地図では点線の縁" : "Dashed ring on the map"],
+    [ja ? "既存の候補施設" : "Existing candidate sites", ja ? "OpenStreetMapの温室・病院・プール・学校・温泉" : "Greenhouses, hospitals, pools, schools and a bath from OpenStreetMap", "© OpenStreetMap contributors (ODbL)"],
+  ];
+  $("assume").innerHTML = `<thead><tr><th>${esc(t("aItem"))}</th><th>${esc(t("aVal"))}</th><th>${esc(t("aBasis"))}</th></tr></thead><tbody>` +
+    rows.map(([i, v, b]) => `<tr><td>${esc(i)}</td><td>${esc(v)}</td><td>${esc(b)}</td></tr>`).join("") + "</tbody>";
+}
+
+/* ---------- tooltips on the map ---------- */
+function mapTip(ev) {
+  if (!story || !P) return;
+  const box = $("mapbox").getBoundingClientRect(), mx = ev.clientX - box.left, my = ev.clientY - box.top;
+  const net = current(), sc = scen(), tip = $("tip");
+  let html = null;
+  if (Math.hypot(px(story.dc.lon) - mx, py(story.dc.lat) - my) < 16) {
+    html = `<b>${esc(S.lang === "ja" ? story.dc.name : story.dc.name_en)}</b><br>${esc(t("lDc"))}`;
+  } else {
+    let best = null, bd = Infinity;
+    for (const s of story.sites) {
+      if (!sc.kinds.includes(s.kind)) continue;
+      const r = 3 + 2.1 * Math.sqrt(s.annual / 250), d = Math.hypot(px(s.lon) - mx, py(s.lat) - my);
+      if (d < Math.max(12, r + 5) && d < bd) { bd = d; best = s; }
+    }
+    if (best) {
+      const served = net.served[best.id];
+      html = `<b>${esc(siteName(best))}</b><br>${esc(kindLabel(best.kind))}<br>${esc(t("demandYr")(nf(best.annual)))}<br>` +
+        (served ? esc(t("thisMonth")(monthName(S.month), nf(served[S.month]))) : esc(t("notConnected"))) +
+        `<br><span class="src">${esc(best.source)}</span>`;
+    }
+  }
+  if (!html) { tip.hidden = true; return; }
+  tip.innerHTML = html; tip.hidden = false;
+  const left = mx + 14 + tip.offsetWidth > W - 8 ? mx - 14 - tip.offsetWidth : mx + 14;
+  tip.style.left = `${Math.max(8, left)}px`;
+  tip.style.top = `${Math.max(8, Math.min(my + 14, H - tip.offsetHeight - 8))}px`;
+}
+
+/* ---------- text and wiring ---------- */
+function renderText() {
+  document.documentElement.lang = S.lang;
+  $("title").innerHTML = t("title");
+  document.querySelectorAll("[data-t]").forEach((el) => { const v = T[S.lang][el.dataset.t]; if (typeof v === "string") el.textContent = v; });
+  $("lang-ja").setAttribute("aria-pressed", String(S.lang === "ja"));
+  $("lang-en").setAttribute("aria-pressed", String(S.lang === "en"));
+  $("v-opt").textContent = t("opt"); $("v-pairs").textContent = t("pairs");
+  $("viewgroup").setAttribute("aria-label", S.lang === "ja" ? "表示するネットワーク" : "Network shown");
+  renderPlay();
+}
+
+function renderData(rebuildMap) {
+  if (!story) return;
+  $("scenario").innerHTML = Object.entries(story.scenarios).map(([k, v]) => `<option value="${k}"${k === S.scenario ? " selected" : ""}>${esc(v.label[S.lang])}</option>`).join("");
+  renderFigures(); renderPanel(); renderMonthUI(); renderBadge(); renderChart(); renderWhy(); renderMethod(); renderAssumptions();
+  drawMap(rebuildMap);
+}
+
+function applyLang(lang) {
+  if (lang !== "ja" && lang !== "en") return;
+  S.lang = lang; renderText(); renderData(true);
+}
+
+async function start() {
+  readColours();
+  renderText();
+  const setHash = (h) => { try { if (location.protocol !== "about:") location.hash = h; } catch (e) { /* embedded copy without its own address */ } };
+  $("lang-ja").addEventListener("click", () => { setHash("ja"); applyLang("ja"); });
+  $("lang-en").addEventListener("click", () => { setHash("en"); applyLang("en"); });
+  window.addEventListener("hashchange", () => { const h = location.hash.replace("#", ""); if (h !== S.lang) applyLang(h); });
+  try {
+    story = await fetch("story.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  } catch (e) {
+    $("loading").textContent = t("loadFail");
+    return;
+  }
+  for (const s of story.sites) sitesById[s.id] = s;
+  renderData(true);
+  $("scenario").addEventListener("change", (e) => { S.scenario = e.target.value; renderData(false); });
+  $("v-opt").addEventListener("click", () => { S.view = "opt"; renderData(false); });
+  $("v-pairs").addEventListener("click", () => { S.view = "pairs"; renderData(false); });
+  $("play").addEventListener("click", () => (S.playing ? stop() : play()));
+  $("c-flow").addEventListener("pointermove", mapTip);
+  $("c-flow").addEventListener("pointerdown", mapTip);
+  $("c-flow").addEventListener("pointerleave", () => ($("tip").hidden = true));
+  let rt = null;
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => drawMap(true), 150); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearInterval(timer);
+    else if (S.playing) play();
+  });
+  if (!reduceMotion) { requestAnimationFrame(frame); if (S.playing) play(); }
+  try {
+    const records = await fetch("base.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    layers = decodeBase(records);
+    $("loading").hidden = true;
+    drawMap(true);
+  } catch (e) {
+    $("loading").textContent = t("loadFail");
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawMap(true));
+}
+start();
+</script>
