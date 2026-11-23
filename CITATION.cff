@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Team Data Center: optimization for data centers in Ishikari, Hokkaido"
+authors:
+  - name: "Team Data Center"
+license: MIT
+repository-code: "https://github.com/ggnsjp/team-data-center"
+version: 0.1.0
+keywords:
+  - data centers
+  - waste heat
+  - district heating
+  - optimal power flow
+  - facility location
+  - robust optimization

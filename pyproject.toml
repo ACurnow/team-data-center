@@ -1,0 +1,50 @@
+[project]
+name = "team-data-center"
+version = "0.1.0"
+description = "Optimization for data centers in Ishikari, Hokkaido: waste-heat networks, grid hosting capacity and siting"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = [
+    "geopandas>=1.2.0",
+    "highspy>=1.16.0",
+    "matplotlib>=3.11.2",
+    "networkx>=3.7",
+    "numpy>=2.5",
+    "osmnx>=2.2.0",
+    "pandas>=3.1",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "shapely>=2.2",
+    "streamlit>=1.67.0",
+]
+
+[project.optional-dependencies]
+conic = [
+    "clarabel>=0.9",
+    "scs>=3.2",
+]
+gurobi = [
+    "gurobipy>=14.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.30,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "dcopt"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120

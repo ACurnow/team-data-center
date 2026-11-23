@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Downloaded and generated data (rebuild with scripts)
+data/raw/
+data/cache/
+out/
+results/
+
+# Notes that quote third-party material
+research_notes/
+
+# Secrets and solver licenses: never commit
+*.lic
+.env
+.env.*
+
+# Windows download markers
+*:Zone.Identifier
