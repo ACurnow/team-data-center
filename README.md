@@ -4,7 +4,7 @@
 
 [日本語版 / Japanese](README.ja.md)
 
-![Waste heat flowing from two Ishikari data centers to three pools, a school, a fish farm and road heating, month by month](docs/img/heat-network.gif)
+![Waste heat flowing from two Ishikari data centers to three pools, a school, a fish farm and road heating, month by month](docs/img/heat-network-seasons.gif)
 
 *Model v2, expected plan. One shared network carries waste heat from two data centers in the Ishikari Bay New Port to three pools, a school, a fish farm and road heating. Line width shows the pipe size, and the bars show the heat delivered each month. Several sites and data-center positions are assumptions or placeholders ([Data and sources](#data-and-sources)). Map data © OpenStreetMap contributors (ODbL).*
 

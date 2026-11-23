@@ -3,7 +3,7 @@
 Inputs (not committed, rebuilt by scripts):
   out/heat_story/base.json          base map from scripts/export_heat_story.py (OpenStreetMap, ODbL)
   out/heat_network_v2/plans.json    model v2 plans from scripts/export_heat_network_v2.py
-Output: docs/img/heat-network.gif (and a still, docs/img/heat-network.png)
+Output: docs/img/heat-network-seasons.gif (and a still, docs/img/heat-network.png)
 
 Run: uv run python scripts/render_readme_animation.py [--plan expected|robust]
 """
@@ -22,6 +22,8 @@ import numpy as np  # noqa: E402
 from matplotlib.collections import LineCollection  # noqa: E402
 from matplotlib.patches import Polygon, Rectangle  # noqa: E402
 from PIL import Image  # noqa: E402
+
+from dcopt.heat.v1 import SNOW  # noqa: E402  JMA normals 1991-2020, Sapporo: monthly snowfall (cm)
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "out" / "heat_story" / "base.json"
@@ -125,10 +127,16 @@ def point_at(xy: np.ndarray, cl: np.ndarray, s: np.ndarray) -> np.ndarray:
 
 
 def main() -> None:
+    global W_PX, H_PX, DPI, OUT
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", default="expected", choices=["expected", "robust"])
     ap.add_argument("--frames", type=int, default=12, help="frames per month")
+    ap.add_argument("--width", type=int, default=W_PX, help="pixels; 1920 with --height 1080 --dpi 192 for slides")
+    ap.add_argument("--height", type=int, default=H_PX)
+    ap.add_argument("--dpi", type=int, default=DPI)
+    ap.add_argument("--out", default=str(OUT), help="folder for heat-network.gif and .png")
     args = ap.parse_args()
+    W_PX, H_PX, DPI, OUT = args.width, args.height, args.dpi, Path(args.out)
     base = json.loads(BASE.read_text(encoding="utf-8"))
     data = json.loads(PLANS.read_text(encoding="utf-8"))
     plan, dcs = data["plans"][args.plan], data["dcs"]
@@ -166,7 +174,12 @@ def main() -> None:
     reach = ", ".join(words[:-1]) + " and " + words[-1] if len(words) > 1 else words[0]
     rng = np.random.default_rng(7)
     for p in pipes:
-        p["phase"] = rng.uniform(0, 0.2)
+        p["phase"], p["pos"] = rng.uniform(0, 0.2), 0.0
+    n_flakes = 900                                                   # snow drifting down the map in winter
+    flakes = np.c_[rng.uniform(x0, x1, n_flakes), rng.uniform(y0, y1, n_flakes)]
+    flake_v = rng.uniform(0.012, 0.035, n_flakes) * (x1 - x0) / 10
+    flake_s = rng.uniform(1.5, 6.0, n_flakes) * (DPI / 100) ** 2
+    snow_max = float(max(SNOW))
 
     frames: list[Image.Image] = []
     n_per = args.frames
@@ -180,36 +193,57 @@ def main() -> None:
         ax = fig.add_axes([0, 0, 1, 1])
         ax.imshow(background, extent=(x0, x1, y0, y1), origin="upper", zorder=0)
         ax.set_xlim(x0, x1); ax.set_ylim(y0, y1); ax.set_aspect("equal"); ax.axis("off")
+        sc = (DPI / 100) ** 2                                       # marker areas scale with resolution
 
+        # Season: snow cover and falling snow follow the month's snowfall.
+        snow_k = ((1 - w) * SNOW[prev] + w * SNOW[m]) / snow_max
+        if snow_k > 0.01:
+            ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, color="#dfe8f6", alpha=0.13 * snow_k, lw=0, zorder=1))
+        flakes[:, 1] -= flake_v
+        flakes[:, 0] += 0.004 * (x1 - x0) / 10 * np.sin(i / 6 + np.arange(n_flakes))
+        wrap = flakes[:, 1] < y0
+        flakes[wrap, 1] = y1
+        flakes[wrap, 0] = rng.uniform(x0, x1, int(wrap.sum()))
+        n_on = int(n_flakes * snow_k)
+        if n_on:
+            ax.scatter(flakes[:n_on, 0], flakes[:n_on, 1], s=flake_s[:n_on], c="#f2f6fc", alpha=0.6, lw=0, zorder=4)
+
+        # Heat: brightness, width, particle size and speed all follow the month's flow in each pipe.
         for p in pipes:
             flow = (1 - w) * p["monthly"][prev] + w * p["monthly"][m]
             k = flow / peak
-            lw = DN_WIDTH.get(p["dn"], 2.0)
-            for width, alpha in ((lw * 4.5, 0.07), (lw * 2.2, 0.18), (lw, 0.95)):
+            kk = math.sqrt(k)
+            lw = DN_WIDTH.get(p["dn"], 2.0) * DPI / 100
+            for width, alpha in ((lw * (2.5 + 5 * k), 0.08), (lw * (1.4 + 1.8 * k), 0.22), (lw, 1.0)):
                 ax.plot(p["xy"][:, 0], p["xy"][:, 1], color=C["heat_deep"] if width > lw else C["heat"],
-                        lw=width, alpha=alpha * (0.35 + 0.65 * k), solid_capstyle="round", zorder=5)
+                        lw=width, alpha=alpha * (0.15 + 0.85 * kk), solid_capstyle="round", zorder=5)
             L = p["cl"][-1]
-            if L > 0 and k > 0.01:
-                spacing = 0.16
+            p["pos"] += (0.003 + 0.12 * k) * (x1 - x0) / 10            # km per frame
+            if L > 0 and k > 0.003:
+                spacing = 0.13 * (x1 - x0) / 10
                 n = max(1, int(L / spacing))
-                speed = 0.012 + 0.05 * k                           # km per frame
-                s = (p["phase"] + i * speed + np.arange(n) * spacing) % L
+                s = (p["phase"] + p["pos"] + np.arange(n) * spacing) % L
                 pts = point_at(p["xy"], p["cl"], s)
-                ax.scatter(pts[:, 0], pts[:, 1], s=6 + 14 * k, c=C["core"], alpha=0.35 + 0.6 * k, lw=0, zorder=6)
+                ax.scatter(pts[:, 0], pts[:, 1], s=(3 + 40 * k) * sc, c=C["core"], alpha=0.15 + 0.85 * kk, lw=0,
+                           zorder=6)
 
         for st in sites:
             x, y = pr(st["lon"], st["lat"])
             g = GROUP.get(st["kind"], "building")
-            size = 18 + 140 * math.sqrt(st["annual"] / 5000)
+            size = (18 + 140 * math.sqrt(st["annual"] / 5000)) * sc
             if st["dc"]:
-                share = ((1 - w) * st["served"][prev] + w * st["served"][m]) / served_peak
-                ax.scatter([x], [y], s=size * (1.6 + 2.2 * share), c=GROUP_COLOR[g], alpha=0.18, lw=0, zorder=7)
+                own_peak = max(st["served"]) or 1                   # each site pulses with its own season
+                share = ((1 - w) * st["served"][prev] + w * st["served"][m]) / own_peak
+                ax.scatter([x], [y], s=size * (1.0 + 4.0 * share), c=GROUP_COLOR[g], alpha=0.06 + 0.26 * share, lw=0,
+                           zorder=7)
                 if st["assumed"]:
-                    ax.scatter([x], [y], s=size, facecolors="none", edgecolors=GROUP_COLOR[g], lw=1.8, zorder=8)
+                    ax.scatter([x], [y], s=size, facecolors="none", edgecolors=GROUP_COLOR[g], lw=1.8 * DPI / 100,
+                               alpha=0.35 + 0.65 * share, zorder=8)
                 else:
-                    ax.scatter([x], [y], s=size, c=GROUP_COLOR[g], edgecolors=C["core"], lw=0.6, zorder=8)
+                    ax.scatter([x], [y], s=size, c=GROUP_COLOR[g], edgecolors=C["core"], lw=0.6 * DPI / 100,
+                               alpha=0.4 + 0.6 * share, zorder=8)
             else:
-                ax.scatter([x], [y], s=10, c=GROUP_COLOR[g], alpha=0.35, lw=0, zorder=4)
+                ax.scatter([x], [y], s=10 * sc, c=GROUP_COLOR[g], alpha=0.35, lw=0, zorder=4)
 
         for d in dcs:
             x, y = pr(d["lon"], d["lat"])
@@ -231,8 +265,8 @@ def main() -> None:
         fig.text(tx, 0.94, "Waste heat from Ishikari's data centers", color=C["ink"], fontsize=15, weight="bold")
         fig.text(tx, 0.905, f"One shared network to {reach}, month by month", color=C["ink2"], fontsize=9.5)
         fig.text(tx, 0.80, MONTHS_LONG[m], color=C["heat"], fontsize=26, weight="bold")
-        fig.text(tx, 0.755, f"Mean temperature {data['temp'][m]:+.1f} °C (Sapporo, 1991-2020 normal)",
-                 color=C["ink2"], fontsize=9)
+        fig.text(tx, 0.755, f"Mean temperature {data['temp'][m]:+.1f} °C, snowfall {SNOW[m]} cm "
+                 "(Sapporo, 1991-2020 normals)", color=C["ink2"], fontsize=9)
         fig.text(tx, 0.70, f"Heat delivered  {delivered[m]:,.0f} MWh", color=C["ink"], fontsize=11)
         used = delivered[m] / waste[m] if waste[m] else 0
         fig.text(tx, 0.665, f"Share of available waste heat used  {used:.0%}", color=C["ink2"], fontsize=9.5)
@@ -272,15 +306,18 @@ def main() -> None:
 
     OUT.mkdir(parents=True, exist_ok=True)
     frames[n_per - 1].save(OUT / "heat-network.png", optimize=True)
-    sample = Image.new("RGB", (W_PX, H_PX * 4))
+    sample = Image.new("RGB", (W_PX, H_PX * 4 + 80))
     for j, idx in enumerate([n_per - 1, 3 * n_per - 1, 6 * n_per - 1, 9 * n_per - 1]):
         sample.paste(frames[idx], (0, H_PX * j))
+    keys = [C["heat"], C["heat_deep"], C["core"], C["ink"], C["ink2"], *GROUP_COLOR.values(), "#f2f6fc"]
+    for j, hexc in enumerate(keys):                          # key colours keep palette entries of their own
+        sample.paste(Image.new("RGB", (60, 80), hexc), (j * 60, H_PX * 4))
     palette = sample.quantize(colors=255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
     pal_frames = [fr.quantize(palette=palette, dither=Image.Dither.NONE) for fr in frames]
     durations = [90] * len(pal_frames)
-    pal_frames[0].save(OUT / "heat-network.gif", save_all=True, append_images=pal_frames[1:], duration=durations,
+    pal_frames[0].save(OUT / "heat-network-seasons.gif", save_all=True, append_images=pal_frames[1:], duration=durations,
                        loop=0, optimize=True, disposal=1)
-    print("wrote", OUT / "heat-network.gif", f"{(OUT / 'heat-network.gif').stat().st_size / 1e6:.1f} MB,",
+    print("wrote", OUT / "heat-network-seasons.gif", f"{(OUT / 'heat-network-seasons.gif').stat().st_size / 1e6:.1f} MB,",
           len(frames), "frames")
 
 
