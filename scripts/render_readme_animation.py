@@ -3,7 +3,7 @@
 Inputs (not committed, rebuilt by scripts):
   out/heat_story/base.json          base map from scripts/export_heat_story.py (OpenStreetMap, ODbL)
   out/heat_network_v2/plans.json    model v2 plans from scripts/export_heat_network_v2.py
-Output: docs/img/heat-network-19-sites.gif (and a still, docs/img/heat-network.png)
+Output: docs/img/heat-network-map.gif (and a still, docs/img/heat-network.png)
 
 Run: uv run python scripts/render_readme_animation.py [--plan expected|robust]
 """
@@ -39,7 +39,7 @@ GROUP = {"greenhouse": "farm", "new_greenhouse": "farm", "aquaculture": "farm", 
          "school": "building", "pool": "building", "onsen": "building", "snow": "snow"}
 GROUP_COLOR = {"farm": "#0ca30c", "building": "#d55181", "snow": "#3987e5"}
 GROUP_LABEL = {"farm": "Greenhouses, fish farm", "building": "Buildings: public, pools, schools, hotels", "snow": "Snow melting"}
-DN_WIDTH = {50: 1.2, 80: 1.6, 100: 2.0, 150: 2.8, 200: 3.6, 250: 4.4}
+DN_WIDTH = {50: 1.8, 80: 2.2, 100: 2.6, 150: 3.4, 200: 4.2, 250: 5.0}
 # Label offsets in km from each data center, chosen so the four labels do not overlap.
 LABEL_AT = {"zed": (0.14, 0.13, "left"), "isrd1": (-0.16, 0.04, "right"), "sakura": (0.16, -0.12, "left"),
             "nttme": (0.0, -0.24, "center")}
@@ -77,14 +77,15 @@ def view_box(plan: dict, dcs: list[dict], pr: Proj, aspect: float) -> tuple[floa
     for d in dcs:
         x, y = pr(d["lon"], d["lat"]); xs.append(float(x)); ys.append(float(y))
     x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
-    w, h = max(x1 - x0, 1.0) * 1.9, max(y1 - y0, 1.0) * 1.9
-    w, h = max(w, 6.5), max(h, 6.5 / aspect)
+    # The network fills the area right of the text panel: x from 43 % to 97 % of the width, y from 9 % to 93 %.
+    w, h = max(x1 - x0, 0.5) / 0.54, max(y1 - y0, 0.5) / 0.84
     if w / h < aspect:
         w = h * aspect
     else:
         h = w / aspect
-    cx, cy = (x0 + x1) / 2 - w * 0.20, (y0 + y1) / 2 + h * 0.02      # content sits right of the text panel
-    return cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    vx0, vy0 = cx - 0.70 * w, cy - 0.51 * h
+    return vx0, vx0 + w, vy0, vy0 + h
 
 
 def draw_base(ax, base: list[dict], pr: Proj) -> None:
@@ -218,9 +219,11 @@ def main() -> None:
             k = flow / peak
             kk = math.sqrt(k)
             lw = DN_WIDTH.get(p["dn"], 2.0) * DPI / 100
-            for width, alpha in ((lw * (2.5 + 5 * k), 0.08), (lw * (1.4 + 1.8 * k), 0.22), (lw, 1.0)):
+            ax.plot(p["xy"][:, 0], p["xy"][:, 1], color=C["heat"], lw=lw * 0.55, alpha=0.55,
+                    solid_capstyle="round", zorder=5)                  # the pipe itself, every month
+            for width, alpha in ((lw * (2.5 + 5 * k), 0.09), (lw * (1.4 + 1.8 * k), 0.24), (lw, 1.0)):
                 ax.plot(p["xy"][:, 0], p["xy"][:, 1], color=C["heat_deep"] if width > lw else C["heat"],
-                        lw=width, alpha=alpha * (0.15 + 0.85 * kk), solid_capstyle="round", zorder=5)
+                        lw=width, alpha=alpha * (0.2 + 0.8 * kk), solid_capstyle="round", zorder=5)
             L = p["cl"][-1]
             p["pos"] += (0.003 + 0.12 * k) * (x1 - x0) / 10            # km per frame
             if L > 0 and k > 0.003:
@@ -263,8 +266,6 @@ def main() -> None:
         # Text panel on the left, legend box on the right.
         fig.patches.append(Rectangle((0, 0), 0.40, 1, transform=fig.transFigure, color=C["night"], alpha=0.62,
                                      zorder=1))
-        fig.patches.append(Rectangle((0.685, 0.075), 0.30, 0.235, transform=fig.transFigure, color=C["night"],
-                                     alpha=0.62, zorder=1))
         tx = 0.025
         fig.text(tx, 0.94, "Waste heat from Ishikari's data centers", color=C["ink"], fontsize=15, weight="bold")
         first, _, rest = reach.partition("\n")
@@ -293,7 +294,7 @@ def main() -> None:
         fig.text(bx, by + bh + 0.012, "Heat delivered per month (MWh)", color=C["ink2"], fontsize=8.5)
 
         # Legend at the bottom right.
-        lx, ly = 0.70, 0.235
+        lx, ly = 0.025, 0.56
         fig.text(lx, ly + 0.04, "Legend", color=C["ink2"], fontsize=8.5, weight="bold")
         for j, (g, label) in enumerate(GROUP_LABEL.items()):
             yy = ly - 0.035 * j
@@ -324,9 +325,9 @@ def main() -> None:
     palette = sample.quantize(colors=255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
     pal_frames = [fr.quantize(palette=palette, dither=Image.Dither.NONE) for fr in frames]
     durations = [90] * len(pal_frames)
-    pal_frames[0].save(OUT / "heat-network-19-sites.gif", save_all=True, append_images=pal_frames[1:], duration=durations,
+    pal_frames[0].save(OUT / "heat-network-map.gif", save_all=True, append_images=pal_frames[1:], duration=durations,
                        loop=0, optimize=True, disposal=1)
-    print("wrote", OUT / "heat-network-19-sites.gif", f"{(OUT / 'heat-network-19-sites.gif').stat().st_size / 1e6:.1f} MB,",
+    print("wrote", OUT / "heat-network-map.gif", f"{(OUT / 'heat-network-map.gif').stat().st_size / 1e6:.1f} MB,",
           len(frames), "frames")
 
 
