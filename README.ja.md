@@ -70,7 +70,7 @@
   - 熱の収支は月単位です。
   - 熱損失は一律の割合で、距離に応じた損失はこれから入れます。
 
-詳しくは [docs/formulations/heat.md](docs/formulations/heat.md) を見てください。
+数理モデルの完全な解説（すべての係数と数値例つき、英語）は [docs/formulations/heat-model.md](docs/formulations/heat-model.md) に、結果は [docs/formulations/heat.md](docs/formulations/heat.md) にあります。
 
 ## 仕組み
 

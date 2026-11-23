@@ -1,6 +1,6 @@
 # Theme 1: the waste-heat network model, in full
 
-This page states the model in `src/dcopt/heat/network.py` (version 2) completely: every set, coefficient, variable, constraint and objective, how each coefficient is computed, and worked numbers. Results are in [heat.md](heat.md). Reference numbers in square brackets point to the list in the [README](../README.md#references).
+This page states the model in `src/dcopt/heat/network.py` (version 2) completely: every set, coefficient, variable, constraint and objective, how each coefficient is computed, and worked numbers. Results are in [heat.md](heat.md). Reference numbers in square brackets point to the list in the [README](../../README.md#references).
 
 **In one sentence.** Choose which streets get a pipe and of which size, which users connect and to which data center, and how much heat each user receives each month, so that the value of the kerosene replaced, minus heat-pump electricity and the annualized cost of pipes and heat pumps, is as large as possible: in expectation over scenarios, in the worst scenario, or with the smallest regret.
 
@@ -23,7 +23,7 @@ This page states the model in `src/dcopt/heat/network.py` (version 2) completely
 | $\mathcal T = \{1,\dots,12\}$ | months |
 | $\Omega$ | scenarios $\omega$ with probabilities $p_\omega$ |
 
-**Candidate links.** Each node is linked to its $k=3$ nearest nodes by road distance. Each user is also linked to its nearest data center, and the data centers are linked to each other. Links longer than 8 km are dropped. With 4 data centers and 50 users this gives about 120 links.
+**Candidate links.** Each node is linked to its $k=3$ nearest nodes by road distance. Each user is also linked to its nearest data center, and the data centers are linked to each other. Links longer than 8 km are dropped. With 4 data centers and 50 users this gives about 150 links.
 
 ## 2. Coefficients and how they are computed
 
@@ -58,17 +58,17 @@ $$P_u = f_{\kappa(u)}\,\max_t \mu_{ut}.$$
 
 **Sizing.** Pipes and heat pumps are sized for $c_u = \alpha P_u$, a share $\alpha$ of the peak ($\alpha=1$ by default). The existing boiler covers anything above $c_u$.
 
-**Energy deliverable in a month.** Within a month, the hourly load is taken as spread evenly between $\mu(1-b)$ and $\mu(1+b)$, where $b=\min(f-1,1)$. Write $\ell o = \mu(1-b)$ and $hi = \mu(1+b)$. A connection of size $c$ then delivers the expected value of $\min(L, c)$ over the month:
+**Energy deliverable in a month.** Within a month, the hourly load is taken as spread evenly between $\underline L = \mu(1-b)$ and $\overline L = \mu(1+b)$, where $b=\min(f-1,1)$. A connection of size $c$ then delivers the expected value of $\min(L, c)$ over the month:
 
 $$\bar s_{ut} = h_t \cdot \begin{cases}
-\mu_{ut} & c_u \ge hi \\
-c_u & c_u \le \ell o \\
-\dfrac{(c_u^2-\ell o^2)/2 + c_u\,(hi-c_u)}{hi-\ell o} & \text{otherwise.}
+\mu_{ut} & c_u \ge \overline L \\
+c_u & c_u \le \underline L \\
+\dfrac{(c_u^2-\underline L^2)/2 + c_u\,(\overline L-c_u)}{\overline L-\underline L} & \text{otherwise.}
 \end{cases}$$
 
 **Example: a pool in January.**
 - Demand: $A=800$ MWh/yr and $\pi_{\text{Jan}}=0.139$, so $D=111$ MWh and $\mu = 111/744 = 0.149$ MW.
-- Spread: $f=1.4$ gives $b=0.4$, $\ell o = 0.089$ MW and $hi = P = 0.209$ MW.
+- Spread: $f=1.4$ gives $b=0.4$, $\underline L = 0.089$ MW and $\overline L = P = 0.209$ MW.
 - With $\alpha=1$ the connection delivers all 111 MWh.
 - With $\alpha=0.7$ ($c=0.146$ MW) it still delivers $\bar s = 744 \times 0.1326 = 98.6$ MWh, or 89 % of January's demand, from a connection 30 % smaller.
 
@@ -239,7 +239,7 @@ $$\mathrm{PoR}(\Gamma) = \frac{N^{nom}(x^0)-N^{nom}(x^\Gamma)}{N^{nom}(x^0)}.$$
 
 ## 7. How it is solved
 
-**Solver.** HiGHS (open source) solves the problem through highspy. Gurobi can be used when installed (`DCOPT_SOLVER=gurobi`). The real instance has about 18,000 variables (about 900 binary) and 15,000 rows.
+**Solver.** HiGHS (open source) solves the problem through highspy. Gurobi can be used when installed (`DCOPT_SOLVER=gurobi`). With 50 candidate users and four scenarios the instance has about 26,000 variables (about 1,150 binary) and 20,000 rows.
 
 **The difficulty.** Discrete pipe sizes weaken the LP bound, and the full MILP does not close in 60 s.
 

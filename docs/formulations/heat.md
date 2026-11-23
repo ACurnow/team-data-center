@@ -1,5 +1,7 @@
 # Theme 1: waste-heat network design
 
+The complete formulation, with every coefficient and worked numbers, is in [heat-model.md](heat-model.md).
+
 The model decides which heat users to connect to which data center, along which streets and with which pipes. It maximizes the value of the heat delivered minus the annualized pipe cost.
 
 ## Prototype formulation (v1)

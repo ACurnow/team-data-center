@@ -68,7 +68,7 @@ An ambient loop at about 30 °C puts heat pumps at the users, and the fish farm 
 - **Positions.** Two data-center positions are approximate and one is a placeholder.
 - **Model scope.** The model balances energy month by month, and heat losses are a flat percentage. Distance-dependent losses are next.
 
-Details: [docs/formulations/heat.md](docs/formulations/heat.md).
+Details: the full mathematical model, with every coefficient and worked numbers, is in [docs/formulations/heat-model.md](docs/formulations/heat-model.md); results are in [docs/formulations/heat.md](docs/formulations/heat.md).
 
 ## How it works
 
