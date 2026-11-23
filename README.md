@@ -68,7 +68,11 @@ The stochastic plan with an ambient loop earns **93.8** in expectation, against 
 
 ### Caveats
 
-- **Optimality.** Plans come from an LP-guided kernel search, not a certified optimum: the gaps against HiGHS bounds are 13–25 %.
+- **Optimality.** The plans come from an LP-guided kernel search with HiGHS.
+  - *Standard candidate links.* Gurobi 14.0, an optional backend, proves the optimum of the expected-value model in 71 s (ambient) and 255 s (central). The kernel-search plans are within 0.2 % and 0.8 % of that optimum. HiGHS alone ends at gaps of 18 % and 26 % after 300 s.
+  - *Direct links from every user to every data center.* Gurobi reaches gaps of 1.5 % and 3.9 % within 600 s, and HiGHS 38 % and 36 %.
+  - The headline plans also use direct links seeded from each data center's own plan.
+  - To rerun the comparison: `uv run python experiments/solver_compare/run.py`.
 - **Positions.** Two data-center positions are approximate and one is a placeholder.
 - **Model scope.** The model balances energy month by month, and heat losses are a flat percentage. Distance-dependent losses are next.
 
@@ -140,7 +144,7 @@ tests/              unit tests on synthetic instances and app tests
 ## Solvers
 
 - **Open source by default.** HiGHS solves the MILPs; conic problems (theme 2) will use Clarabel or SCS.
-- **Optional commercial solver.** Gurobi can be used when installed (`DCOPT_SOLVER=gurobi`), but no part of the code requires it.
+- **Optional commercial solver.** Gurobi can be used when installed (`DCOPT_SOLVER=gurobi`), but no part of the code requires it. On this model it certifies plans that HiGHS cannot within the same time (see Caveats).
 
 ## Next research questions
 

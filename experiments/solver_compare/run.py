@@ -24,15 +24,17 @@ def main() -> None:
     ap.add_argument("--limits", default="60,300", help="time limits in seconds, comma separated")
     ap.add_argument("--modes", default="ambient,central")
     ap.add_argument("--solvers", default="highs,gurobi")
+    ap.add_argument("--dc-links", type=int, default=1,
+                    help="direct candidate links from each user to its nearest data centers (4: to every data center)")
     args = ap.parse_args()
     use_overpass_mirror()
     sakura, sites = ishikari_sites()
     inst = build_instance(ishikari_sources(sakura), sites)
     scens = default_scenarios()
-    print(f"instance: {inst.D} data centers, {inst.U} users, {len(scens)} scenarios")
+    print(f"instance: {inst.D} data centers, {inst.U} users, {len(scens)} scenarios, dc_links {args.dc_links}")
     best_bound: dict[str, float] = {}
     for mode in args.modes.split(","):
-        P = Params(mode=mode)
+        P = Params(mode=mode, dc_links=args.dc_links)
         kern = solve_kernel(inst, P, scens)
         print(f"\n== {mode}: kernel search (HiGHS) value {kern.expected_net / M:.2f}M, "
               f"LP bound {kern.kernel['bound'] / M:.2f}M, {kern.seconds:.1f}s, {len(kern.connected)} sites")

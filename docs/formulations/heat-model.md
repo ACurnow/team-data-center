@@ -292,7 +292,12 @@ where $\mathcal X$ is (C1)–(C5) and $\mathcal S$ is (C6)–(C7) with $W_{dt} =
 4. Optionally, solve the full MILP warm-started from that plan.
 5. Re-evaluate every plan with exact recourse.
 
-The gap to the LP bound is reported, and was 13–21 % in our runs. **The plans are therefore not certified optimal.** A stronger formulation (cut-set inequalities, Benders cuts) is an open research question.
+**How good are the plans?** We checked against Gurobi 14.0, the optional backend, using `experiments/solver_compare` on the full MILP with a cold start and 16 threads:
+- *Standard candidate links.* Gurobi proves the optimum in 71 s (ambient) and 255 s (central). The kernel-search plans are within 0.2 % and 0.8 % of it.
+- *Every user linked directly to every data center.* Gurobi ends at 1.5 % and 3.9 % gaps after 600 s.
+- *HiGHS on the full MILP.* It stops at 18–38 % gaps on both candidate sets.
+
+The plans themselves are good; HiGHS's bound is what is weak. A stronger formulation (cut-set inequalities, Benders cuts) that lets an open-source solver certify them is an open research question.
 
 ## 8. Checks
 

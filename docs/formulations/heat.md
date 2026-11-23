@@ -127,13 +127,28 @@ Four scenarios with equal weights: IT load low or high, crossed with kerosene at
 - *Ambient.* The Γ = 0 plan earns 66.0: five sites on ZED and road heating on the planned NTT-ME. Its worst case is 32.3 at Γ = 1 (ZED low) and −0.7 at Γ = 2 (ZED low and NTT-ME not built). The plan for every Γ ≥ 1 serves the same five sites from No. 1 and keeps 59.7 in every case. Its price of robustness is 9.7 %.
 - *Central.* The Γ = 0 plan earns 38.0 with twelve sites on ZED, and its worst case is −1.4. The robust plan, eleven sites on No. 1, keeps 37.3 at a price of 1.8 %.
 
+**Solver comparison** (`experiments/solver_compare`; the full expected-value MILP; cold start; 16 threads; values and bounds in million yen):
+
+| Candidate links | Mode | Solver | Time limit | Value | Bound | Gap | Status |
+|---|---|---|---|---|---|---|---|
+| standard | ambient | HiGHS 1.16 | 300 s | 79.7 | 96.8 | 17.7 % | time limit |
+| standard | ambient | Gurobi 14.0 | 300 s | 88.24 | 88.24 | 0 % | optimal in 70.8 s |
+| standard | central | HiGHS 1.16 | 300 s | 68.3 | 92.6 | 26.3 % | time limit |
+| standard | central | Gurobi 14.0 | 300 s | 82.00 | 82.00 | 0 % | optimal in 255 s |
+| direct links to every data center | ambient | HiGHS 1.16 | 600 s | 66.1 | 106.7 | 38.1 % | time limit |
+| direct links to every data center | ambient | Gurobi 14.0 | 600 s | 92.36 | 93.74 | 1.5 % | time limit |
+| direct links to every data center | central | HiGHS 1.16 | 600 s | 60.1 | 93.9 | 36.1 % | time limit |
+| direct links to every data center | central | Gurobi 14.0 | 600 s | 82.16 | 85.52 | 3.9 % | time limit |
+
+The HiGHS kernel-search plans reach 88.08 and 81.31 on the standard links. That is within 0.18 % and 0.83 % of the proven optimum.
+
 **What the results say.**
 - Small or planned data centers are where uncertainty bites. A robust plan moves users to the large, operating center at a small price.
 - Planning for the average scenario costs 14.8 a year against the stochastic plan in ambient mode.
 - With heat pumps paid for, the ambient loop beats the central heat pump (93.8 against 81.5).
 
 **Caveats.**
-- The plans are not certified optimal: the gaps against HiGHS bounds are 13–25 %.
+- Optimality: certified by Gurobi on the standard candidate links. With direct links to every data center the remaining gaps are 1.5–3.9 % (Gurobi, 600 s).
 - Data-center positions are approximate or placeholders. Several users are assumed sites, and demand per building type is an assumption.
 - The model has monthly energy balances only, with a flat heat-loss share.
 - The largest pipe (DN250) carries 4.6 MW in ambient mode.
