@@ -3,7 +3,7 @@
 Inputs (not committed, rebuilt by scripts):
   out/heat_story/base.json          base map from scripts/export_heat_story.py (OpenStreetMap, ODbL)
   out/heat_network_v2/plans.json    model v2 plans from scripts/export_heat_network_v2.py
-Output: docs/img/heat-network-seasons.gif (and a still, docs/img/heat-network.png)
+Output: docs/img/heat-network-19-sites.gif (and a still, docs/img/heat-network.png)
 
 Run: uv run python scripts/render_readme_animation.py [--plan expected|robust]
 """
@@ -324,9 +324,9 @@ def main() -> None:
     palette = sample.quantize(colors=255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
     pal_frames = [fr.quantize(palette=palette, dither=Image.Dither.NONE) for fr in frames]
     durations = [90] * len(pal_frames)
-    pal_frames[0].save(OUT / "heat-network-seasons.gif", save_all=True, append_images=pal_frames[1:], duration=durations,
+    pal_frames[0].save(OUT / "heat-network-19-sites.gif", save_all=True, append_images=pal_frames[1:], duration=durations,
                        loop=0, optimize=True, disposal=1)
-    print("wrote", OUT / "heat-network-seasons.gif", f"{(OUT / 'heat-network-seasons.gif').stat().st_size / 1e6:.1f} MB,",
+    print("wrote", OUT / "heat-network-19-sites.gif", f"{(OUT / 'heat-network-19-sites.gif').stat().st_size / 1e6:.1f} MB,",
           len(frames), "frames")
 
 
