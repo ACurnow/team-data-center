@@ -1,10 +1,8 @@
-# Theme 1: waste-heat network design / 排熱の導管網
+# Theme 1: waste-heat network design
 
 The model decides which heat users to connect to which data center, along which streets and with which pipes. It maximizes the value of the heat delivered minus the annualized pipe cost.
 
-どの施設を、どのデータセンターに、どの道路沿いに、どの太さの管でつなぐかを決めます。届けた熱の価値から導管費の年額を引いた値を最大にします。
-
-## Prototype formulation (v1) / 試作版の定式化
+## Prototype formulation (v1)
 
 **Sets.** Node $0$ is the data center. $U$ is the set of users. The candidate street links $E$ are each node's 3 nearest neighbours by road distance plus direct links from the data center, all within 8 km. The arcs $A$ are both directions of each link. The months are $T = \{1,\dots,12\}$.
 
@@ -35,7 +33,7 @@ This is a prize-collecting Steiner tree with monthly capacities, written in mult
 
 **Baseline.** Score each user alone, with its own pipe from the data center, and take the best five ("top-5 pairs"). On the prototype data, the network gave 2.1 to 3.4 times the annual net benefit of the top-5 pairs across the price and pipe-cost cases tried.
 
-## Version 2 (`dcopt.heat.network`) / 改良版
+## Version 2 (`dcopt.heat.network`)
 
 **Sets.**
 - $D$: data centers — Ishikari RE DC No. 1, Sakura, KCCS ZED, and NTT-ME (planned).
@@ -92,7 +90,7 @@ $$\mathrm{net}_\omega = \sum v_{u\omega}\, s_{udt\omega} - \mathrm{CRF} \sum c_k
 
 **Check against v1.** Restricted to one data center, one large pipe size at 100,000 yen/m, COP 4 and no loss, version 2 reproduces version 1 exactly: 15 sites, 16.1 km, 137.5 M yen/year.
 
-### Results so far, heat-pump investment included / これまでの結果（ヒートポンプの設備費込み）
+### Results so far, heat-pump investment included
 
 Four scenarios with equal weights: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. Heat pumps cost 150 M yen/MW at the users (assumption) and 100 M yen/MW centrally (Odense data). Annual net benefit, million yen. Run logs: `results/` (commit fe6fdf9 and 86ef0cf).
 
@@ -135,7 +133,7 @@ The pair-by-pair approach reaches 63–77 % of the optimized network.
 - In ambient mode the largest pipe size (DN250) carries 4.6 MW; larger trunk sizes should be added.
 - The peak factors, temperatures, velocities, the pipe-cost line and the heat-pump cost at the users are assumptions.
 
-## Open questions / 未解決の問い
+## Open questions
 
 - What are the temperature and the recoverable share of waste heat for each cooling type in the Ishikari data centers?
 - What are the heat losses and the installed cost of buried pipes in Hokkaido? What do heat pumps cost?

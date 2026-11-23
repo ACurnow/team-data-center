@@ -61,6 +61,9 @@ KINDS = {
     "hospital": ("病院", "Hospital", "building", 1500.0),
     "school": ("学校", "School", "school", 250.0),
     "snow": ("ロードヒーティング（仮定）", "Snow melting (assumed)", "snow", None),
+    "public": ("公共施設", "Public building", "building", 400.0),
+    "hotel": ("ホテル", "Hotel", "pool", 1000.0),
+    "factory": ("工場", "Factory", "flat", 1000.0),
 }
 GREENHOUSE_MWH_PER_M2 = 0.40      # assumption: heated greenhouse in Hokkaido, per m2 per year
 SNOW_MWH_PER_M2 = 0.12            # assumption: ~0.25 kWh per m2 per cm of snowfall x 479 cm
@@ -171,6 +174,14 @@ def ishikari_sites() -> tuple[Site, list[Site]]:
     hosp = named[named["name"].fillna("").str.endswith("病院") & named.within(town)]
     add_named("hospital", hosp)
     add_named("school", cand[(cand["kind"] == "amenity=school") & cand["name"].fillna("").str.contains("学校")])
+    # Other named buildings that heat water or rooms all year (OpenStreetMap names; demand is an assumption).
+    in_town = named[named.within(town)]
+    names = in_town["name"].fillna("")
+    not_stop = ~names.str.contains("前$|郵便局|バス|出張所")              # bus stops and post offices share these words
+    add_named("public", in_town[not_stop & names.str.contains(
+        "コミュニティセンター|公民館|図書館|市役所$|保健福祉センター|市民活動情報センター|体育館")])
+    add_named("hotel", in_town[not_stop & names.str.contains("ホテル|旅館")])
+    add_named("factory", in_town[not_stop & names.str.contains("工場")])
 
     # Assumed sites, labelled as such: the three largest farmland plots within 6 km get a 1 ha greenhouse.
     farm = cand[cand["kind"] == "landuse=farmland"].to_crs(6680)

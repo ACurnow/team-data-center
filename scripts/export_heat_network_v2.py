@@ -9,13 +9,14 @@ Run: uv run python scripts/export_heat_network_v2.py
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
 from dcopt.common.geo import road_path, use_overpass_mirror
-from dcopt.heat.network import (BudgetSet, Params, build_instance, ccg, default_scenarios, evaluate,
-                                ishikari_sources, solve_kernel)
+from dcopt.heat.network import (KEROSENE_SURVEY, BudgetSet, Params, build_instance, ccg, default_scenarios,
+                                evaluate, ishikari_sources, solve_kernel)
 from dcopt.heat.v1 import MONTHS_EN, TEMP, ishikari_sites
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,12 +84,15 @@ def main() -> None:
         candidates.append((solve_kernel(inst, P, scens, extra_edges=extra), extra))
     expected, extra = max(candidates, key=lambda c: c[0].expected_net)   # best plan the heuristic found
     robust = evaluate(ccg(inst, P, BudgetSet(budget=1), extra_edges=extra)["plan"], scens)
+    today = [replace(s, prob=0.5) for s in scens if s.kerosene_yen_l == KEROSENE_SURVEY]
+    current = solve_kernel(inst, P, today, extra_edges=extra)                # at today's kerosene price
     data = {
         "months": MONTHS_EN, "temp": TEMP,
         "dcs": [{"key": s.key, "name_en": s.name_en, "lon": r5(s.lon), "lat": r5(s.lat), "status": s.status,
                  "where": s.where[1]} for s in inst.sources],
         "plans": {"expected": export_plan(expected, "Expected plan (stochastic), ambient loop"),
-                  "robust": export_plan(robust, "Robust plan (budget 1), ambient loop")},
+                  "robust": export_plan(robust, "Robust plan (budget 1), ambient loop"),
+                  "current": export_plan(current, "Plan at today's kerosene price (156.8 yen/L), ambient loop")},
         "note": "Model v2, ambient loop, heat-pump investment included; several sites and data-center "
                 "positions are assumptions or placeholders. Map data (c) OpenStreetMap contributors (ODbL).",
     }

@@ -80,7 +80,8 @@ MODES = {
 
 # Supply temperature each kind of user needs (C). All assumptions; the rationale is in SUPPLY_BASIS.
 SUPPLY_C = {"greenhouse": 45.0, "new_greenhouse": 45.0, "aquaculture": 22.0, "snow": 25.0,
-            "pool": 40.0, "onsen": 60.0, "hospital": 60.0, "school": 45.0}
+            "pool": 40.0, "onsen": 60.0, "hospital": 60.0, "school": 45.0,
+            "public": 45.0, "hotel": 60.0, "factory": 60.0}
 SUPPLY_BASIS = {
     "greenhouse": "assumption: hot-water pipe heating in greenhouses runs at about 40-50 C",
     "new_greenhouse": "assumption: as existing greenhouses",
@@ -90,12 +91,17 @@ SUPPLY_BASIS = {
     "onsen": "assumption: hot water stored at 60 C or more against Legionella",
     "hospital": "assumption: hot water at 60 C or more; space heating 45-60 C",
     "school": "assumption: low-temperature radiators or floor heating about 45 C",
+    "public": "assumption: space heating with low-temperature radiators about 45 C",
+    "hotel": "assumption: hot water stored at 60 C or more against Legionella",
+    "factory": "assumption: process and wash water about 60 C",
 }
 # Design-hour peak divided by the average load of the coldest (or snowiest) month. All assumptions.
 PEAK_FACTOR = {"greenhouse": 2.5, "new_greenhouse": 2.5, "aquaculture": 1.2, "snow": 3.0,
-               "pool": 1.4, "onsen": 1.4, "hospital": 1.8, "school": 2.0}
+               "pool": 1.4, "onsen": 1.4, "hospital": 1.8, "school": 2.0,
+               "public": 2.0, "hotel": 1.4, "factory": 1.2}
 PEAK_BASIS = ("assumption: greenhouses heat mostly at night (2.5); snow melting follows snowfall events (3.0); "
-              "space heating 1.8-2.0; pools and baths are steady (1.4); fish farms very steady (1.2)")
+              "space heating 1.8-2.0 (hospitals, schools, public buildings); pools, baths and hotels are steady (1.4); "
+              "fish farms and factories very steady (1.2)")
 
 RHO, CP = 990.0, 4.18          # water at 30-60 C: kg/m3, kJ/(kg K)
 

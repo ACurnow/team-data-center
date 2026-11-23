@@ -35,14 +35,16 @@ C = {"night": "#0b1020", "land": "#121a2b", "sea": "#0b1626", "river": "#123049"
      "road": "#7d8aa6", "city": "#46536e", "label": "#8792aa", "ink": "#e8ecf4", "ink2": "#aab3c5",
      "muted": "#6f7a91", "heat": "#ffc46b", "heat_deep": "#ff7a45", "core": "#fff4e0", "bar": "#2c3650"}
 GROUP = {"greenhouse": "farm", "new_greenhouse": "farm", "aquaculture": "farm", "hospital": "building",
+         "public": "building", "hotel": "building", "factory": "building",
          "school": "building", "pool": "building", "onsen": "building", "snow": "snow"}
 GROUP_COLOR = {"farm": "#0ca30c", "building": "#d55181", "snow": "#3987e5"}
-GROUP_LABEL = {"farm": "Greenhouses, fish farm", "building": "Pools, schools, hospitals, baths", "snow": "Snow melting"}
+GROUP_LABEL = {"farm": "Greenhouses, fish farm", "building": "Buildings: public, pools, schools, hotels", "snow": "Snow melting"}
 DN_WIDTH = {50: 1.2, 80: 1.6, 100: 2.0, 150: 2.8, 200: 3.6, 250: 4.4}
 # Label offsets in km from each data center, chosen so the four labels do not overlap.
 LABEL_AT = {"zed": (0.14, 0.13, "left"), "isrd1": (-0.16, 0.04, "right"), "sakura": (0.16, -0.12, "left"),
             "nttme": (0.0, -0.24, "center")}
-KIND_WORDS = {"pool": ("a pool", "pools"), "school": ("a school", "schools"), "hospital": ("a hospital", "hospitals"),
+KIND_WORDS = {"public": ("a public building", "public buildings"), "hotel": ("a hotel", "hotels"),
+              "factory": ("a factory", "factories"), "pool": ("a pool", "pools"), "school": ("a school", "schools"), "hospital": ("a hospital", "hospitals"),
               "onsen": ("a bath", "baths"), "aquaculture": ("a fish farm", "fish farms"),
               "greenhouse": ("a greenhouse", "greenhouses"), "new_greenhouse": ("a new greenhouse", "new greenhouses"),
               "snow": ("road heating", "road heating")}
@@ -81,7 +83,7 @@ def view_box(plan: dict, dcs: list[dict], pr: Proj, aspect: float) -> tuple[floa
         w = h * aspect
     else:
         h = w / aspect
-    cx, cy = (x0 + x1) / 2 - w * 0.17, (y0 + y1) / 2 + h * 0.02      # content sits right of the text panel
+    cx, cy = (x0 + x1) / 2 - w * 0.20, (y0 + y1) / 2 + h * 0.02      # content sits right of the text panel
     return cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
 
 
@@ -129,7 +131,7 @@ def point_at(xy: np.ndarray, cl: np.ndarray, s: np.ndarray) -> np.ndarray:
 def main() -> None:
     global W_PX, H_PX, DPI, OUT
     ap = argparse.ArgumentParser()
-    ap.add_argument("--plan", default="expected", choices=["expected", "robust"])
+    ap.add_argument("--plan", default="expected", choices=["expected", "robust", "current"])
     ap.add_argument("--frames", type=int, default=12, help="frames per month")
     ap.add_argument("--width", type=int, default=W_PX, help="pixels; 1920 with --height 1080 --dpi 192 for slides")
     ap.add_argument("--height", type=int, default=H_PX)
@@ -170,7 +172,10 @@ def main() -> None:
             counts[s["kind"]] = counts.get(s["kind"], 0) + 1
     words = [(KIND_WORDS[k][1] if n > 1 else KIND_WORDS[k][0]) if n < 3 or k == "snow" else f"{n} {KIND_WORDS[k][1]}"
              for k, n in sorted(counts.items(), key=lambda kv: -kv[1])]
-    reach = ", ".join(words[:-1]) + " and " + words[-1] if len(words) > 1 else words[0]
+    if len(words) > 4:                                                 # many kinds: name the three largest groups
+        reach = f"{sum(counts.values())} sites\n" + ", ".join(words[:3]) + " and more"
+    else:
+        reach = ", ".join(words[:-1]) + " and " + words[-1] if len(words) > 1 else words[0]
     rng = np.random.default_rng(7)
     for p in pipes:
         p["phase"], p["pos"] = rng.uniform(0, 0.2), 0.0
@@ -256,13 +261,16 @@ def main() -> None:
                     bbox=dict(boxstyle="round,pad=0.2", fc=C["night"], ec="none", alpha=0.75))
 
         # Text panel on the left, legend box on the right.
-        fig.patches.append(Rectangle((0, 0), 0.355, 1, transform=fig.transFigure, color=C["night"], alpha=0.62,
+        fig.patches.append(Rectangle((0, 0), 0.40, 1, transform=fig.transFigure, color=C["night"], alpha=0.62,
                                      zorder=1))
         fig.patches.append(Rectangle((0.685, 0.075), 0.30, 0.235, transform=fig.transFigure, color=C["night"],
                                      alpha=0.62, zorder=1))
         tx = 0.025
         fig.text(tx, 0.94, "Waste heat from Ishikari's data centers", color=C["ink"], fontsize=15, weight="bold")
-        fig.text(tx, 0.905, f"One shared network to {reach}, month by month", color=C["ink2"], fontsize=9.5)
+        first, _, rest = reach.partition("\n")
+        fig.text(tx, 0.905, f"One shared network to {first}, month by month", color=C["ink2"], fontsize=9.5)
+        if rest:
+            fig.text(tx, 0.875, rest[0].upper() + rest[1:], color=C["ink2"], fontsize=9.5)
         fig.text(tx, 0.80, MONTHS_LONG[m], color=C["heat"], fontsize=26, weight="bold")
         fig.text(tx, 0.755, f"Mean temperature {data['temp'][m]:+.1f} °C, snowfall {SNOW[m]} cm "
                  "(Sapporo, 1991-2020 normals)", color=C["ink2"], fontsize=9)
@@ -295,8 +303,10 @@ def main() -> None:
         fig.text(lx, yy, "○ assumed site   ■ data center   □ planned", color=C["ink2"], fontsize=8.5)
         fig.text(lx, yy - 0.035, "Line width: pipe size DN80 to DN250", color=C["ink2"], fontsize=8.5)
 
-        fig.text(0.5, 0.018, "Model v2, expected plan, ambient loop, heat pumps included. Several sites and data-center "
-                 "positions are assumptions or placeholders.  Map data © OpenStreetMap contributors (ODbL).",
+        fig.text(0.5, 0.04, f"Model v2: {plan['label']}, heat pumps included.", color=C["muted"], fontsize=7.5,
+                 ha="center")
+        fig.text(0.5, 0.016, "Some sites and data-center positions are assumptions or placeholders.  "
+                 "Map data © OpenStreetMap contributors (ODbL).",
                  color=C["muted"], fontsize=7.5, ha="center")
         fig.canvas.draw()
         img = Image.frombuffer("RGBA", fig.canvas.get_width_height(), fig.canvas.buffer_rgba(), "raw", "RGBA", 0, 1)
