@@ -6,6 +6,7 @@ app-level switch (session key app_lang), not from a control on this page.
 from __future__ import annotations
 
 import math
+import re
 
 import altair as alt
 import folium
@@ -13,7 +14,10 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from dcopt.common.geo import paths
+from dcopt.common.geo import geocode, paths
+from dcopt.common import llm
+from dcopt.heat import whatif
+from dcopt.heat.network import ishikari_sources
 from dcopt.heat.v1 import (JMA_SOURCE, KINDS, MONTHS_EN, MONTHS_JA, Assumptions, design,
                          ishikari_sites, pairwise, standalone_and_shared)
 from dcopt.common.style import FONT, GRID, INK, INK2, SLOTS, SURFACE
@@ -31,9 +35,52 @@ def pick(a, b):
     return a if ja else b
 
 
+# The live what-if panel: a submitted question is parsed on the NEXT run, before the sidebar
+# widgets exist, so their session keys can take the parsed values and this run's solve uses them.
+KNOB_TO_KEY = {"it_load_mw": "it_load", "recovery": "recovery", "cop": "hp_cop",
+               "kerosene_yen_l": "kerosene", "power_yen_kwh": "power_price",
+               "pipe_cost": "pipe_cost", "years": "lifetime", "rate": "discount_rate",
+               "renewable_power": "renewable", "assumed_sites": "assumed_sites",
+               "k_pipes": "k_pipes"}
+pending = st.session_state.pop("pending_whatif", None)
+if pending:
+    try:
+        with st.spinner(pick("リクエストを解析中…", "Parsing the request…")):
+            parsed = whatif.parse_patch(pending["question"], pending["current"], llm_chat=llm.chat)
+    except (whatif.WhatifError, llm.LLMError) as e:
+        st.error(pick(f"その条件は読み取れませんでした：{e}", f"Could not read that request: {e}"))
+    else:
+        if parsed["changes"]:
+            for kid, value in parsed["changes"].items():
+                st.session_state[KNOB_TO_KEY[kid]] = value
+            st.session_state["pending_explain"] = {"question": pending["question"],
+                                                   "changed": parsed["changes"],
+                                                   "before": pending["before"]}
+        elif parsed["new_dc"]:
+            st.session_state["pending_newdc"] = parsed["new_dc"]
+        else:
+            st.session_state["pending_clarify"] = parsed["clarify"] or pick(
+                "変えられる項目が見つかりませんでした。「電気料金を2倍」のように具体的に書いてください。",
+                "I could not map that to a knob. Try naming one, like 'double the electricity price'.")
+            if parsed["clarify"]:
+                st.session_state["clarify_context"] = {"question": pending["question"],
+                                                       "clarify": parsed["clarify"]}
+
+
 @st.cache_resource(show_spinner=False)
 def load_sites():
     return ishikari_sites()
+
+
+@st.cache_resource(show_spinner=False)
+def solve_with_new_dc(mw: float, lat: float, lon: float):
+    """The multi-DC engine (the experiments' machinery) with and without one assumed data center.
+
+    Cached on the proposal itself; each solve is a kernel search over the four default scenarios
+    (kerosene 115/156.8 yen per litre, IT low/high), labelled as such in the UI.
+    """
+    sakura, sites = load_sites()
+    return whatif.new_dc_summary(ishikari_sources(sakura), sites, mw, lat, lon)
 
 
 @st.cache_resource(show_spinner=False)
@@ -89,6 +136,102 @@ st.caption(pick(f"差分は「1件ずつ採算順に上位5件を選ぶ」方法
                 f"Deltas against picking the top five users one by one. Investment {opt.capex / 1e8:,.1f} "
                 f"hundred-million yen; optimized in {opt.seconds:.1f} s."))
 
+# ---- live simulation: the LLM chooses the knobs, the model computes the numbers ----
+summary = {pick("つながる需要家（件）", "connected sites"): len(opt.connected),
+           pick("導管（km）", "pipes (km)"): round(opt.pipe_m / 1000, 1),
+           pick("年間の純便益（百万円/年）", "expected net (M yen/yr)"): round(opt.annual_net / 1e6, 1),
+           pick("回収年数", "payback (years)"): round(opt.payback_years, 1),
+           pick("CO2削減（t/年）", "CO2 cut (t/yr)"): int(opt.co2_t),
+           pick("投資額（億円）", "investment (100M yen)"): round(opt.capex / 1e8, 1)}
+st.session_state["last_summary"] = summary
+
+st.markdown("**" + pick("ライブ・シミュレーション（文章で試す）", "Live simulation (ask in plain language)") + "**")
+if not llm.settings()["has_key"]:
+    st.info(pick("環境変数 CF_API_KEY を設定すると、この欄で文章からシナリオを変えられます。"
+                 "数値はすべて左のモデルが計算します。",
+                 "Set the CF_API_KEY environment variable to change scenarios in plain language here. "
+                 "Every number is still computed by the model."))
+    st.chat_input(pick("例：電気料金を2倍にして", "e.g. double the electricity price"), disabled=True)
+else:
+    q = st.chat_input(pick("例：電気料金を2倍にして、仮定の候補地も除いて",
+                           "e.g. double the electricity price and drop the assumed sites"))
+    if q:
+        # the panel is one thread: after a clarify question, the next input continues it
+        ctx = st.session_state.pop("clarify_context", None)
+        question = (f"{ctx['question']}\n(clarify asked: {ctx['clarify']})\n(user answers: {q})"
+                    if ctx else q)
+        st.session_state["pending_whatif"] = {
+            "question": question,
+            "current": {kid: st.session_state[wkey] for kid, wkey in KNOB_TO_KEY.items()},
+            "before": st.session_state.get("last_summary")}
+        st.rerun()
+
+explained = st.session_state.pop("pending_explain", None)
+clarify = st.session_state.pop("pending_clarify", None)
+if explained:
+    try:
+        with st.spinner(pick("結果を説明中…", "Explaining the results…")):
+            answer = llm.chat([{"role": "user", "content": whatif.explain_prompt(
+                explained["question"], explained["changed"], explained["before"] or {},
+                summary, "ja" if ja else "en")}], max_tokens=1600)
+    except llm.LLMError as e:
+        st.error(pick(f"説明を生成できませんでした：{e}", f"Could not explain: {e}"))
+    else:
+        with st.chat_message("assistant"):
+            st.markdown(answer)
+if clarify:
+    with st.chat_message("assistant"):
+        st.markdown(clarify)
+
+proposed = st.session_state.pop("pending_newdc", None)
+if proposed:
+    st.session_state.pop("clarify_context", None)       # the thread resolves here
+    place = proposed["place"].strip()
+    if place.lower() in whatif.RANDOM_PLACES:
+        drawn = whatif.sample_random_dc()
+        mw = proposed["mw"] if proposed["mw"] is not None else drawn["mw"]
+        lat, lon = drawn["lat"], drawn["lon"]
+        label = pick("石狩市内にランダムに選んだ地点", "a random point in the study area")
+    elif (m := re.match(r"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$", place)):
+        lat, lon, label = float(m[1]), float(m[2]), place
+        mw = proposed["mw"] if proposed["mw"] is not None else whatif.sample_random_dc()["mw"]
+    else:
+        try:
+            with st.spinner(pick("場所を探しています…", "Finding the place…")):
+                lat, lon, label = geocode(place)
+        except (LookupError, OSError) as e:
+            lat, lon, label = None, None, None
+            st.error(pick(f"場所を読み取れませんでした（「141.3, 43.2」のように緯度経度でも書けます）：{e}",
+                          f"Could not find that place (lat,lon like '141.3, 43.2' works too): {e}"))
+        mw = proposed["mw"] if proposed["mw"] is not None else (
+            whatif.sample_random_dc()["mw"] if "random" in place.lower() else None)
+        if mw is None and lat is not None:
+            lat = None
+            st.error(pick("MW（IT負荷）が読み取れませんでした。例：手稲区に20MWのデータセンター",
+                          "Could not read the MW (IT load). Example: a 20 MW data center in Teine"))
+    if lat is not None and mw is not None:
+        with st.spinner(pick("マルチDCモデルで解いています（実験と同じ装置、1〜2分）…",
+                             "Solving on the multi-DC engine (the experiments' machinery, 1-2 min)…")):
+            ndc = solve_with_new_dc(mw, lat, lon)
+        st.caption(pick(f"仮定のデータセンター：{mw:g} MW @ {label}（緯度経度 {lat:.4f}, {lon:.4f}）。"
+                        f"シナリオは実験と同じ（灯油115円と156.8円、IT高低）。",
+                        f"Assumed data center: {mw:g} MW at {label} ({lat:.4f}, {lon:.4f}). Scenarios as "
+                        "in the experiments (kerosene 115 and 156.8 yen/L, IT low/high)."))
+        rows = [{pick("項目", "metric"): k, pick("新設なし", "without"): v,
+                 pick("新設あり", "with"): ndc["after"][k]} for k, v in ndc["before"].items()]
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+        try:
+            with st.spinner(pick("結果を説明中…", "Explaining the results…")):
+                answer = llm.chat([{"role": "user", "content": whatif.explain_prompt(
+                    pending["question"] if pending else place,
+                    {ndc["new_dc"]: pick("新設（仮定）", "built (assumption)")},
+                    ndc["before"], ndc["after"], "ja" if ja else "en")}], max_tokens=1600)
+        except llm.LLMError as e:
+            st.error(pick(f"説明を生成できませんでした：{e}", f"Could not explain: {e}"))
+        else:
+            with st.chat_message("assistant"):
+                st.markdown(answer)
+
 left, right = st.columns([7, 5], gap="medium")
 with left:
     view = st.radio(pick("地図に表示", "Show on the map"),
@@ -105,7 +248,8 @@ with left:
     top = max(shown.edge_flow.values(), default=1.0)
     for (a, b, metres) in shown.edges:
         flow = shown.edge_flow.get((a, b), 0.0)
-        folium.PolyLine(shown.paths[a, b], color="#c0392b", weight=2 + 8 * math.sqrt(flow / top), opacity=0.85,
+        folium.PolyLine(shown.paths[a, b], color="#c0392b",
+                        weight=2 + 8 * math.sqrt(flow / top) if top > 0 else 2, opacity=0.85,
                         tooltip=pick(f"導管 {metres / 1000:.2f} km・年 {flow:,.0f} MWh",
                                      f"Pipe {metres / 1000:.2f} km, {flow:,.0f} MWh/yr")).add_to(m)
     connected = set(shown.connected)
