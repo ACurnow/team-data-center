@@ -25,8 +25,10 @@ DAY of the year sets the pipe design load (the design-day method of district hea
 snow-melting stays monthly (melt is a multi-day process) and flat kinds have no peak day.
 
 Data   JMA 過去の気象データ検索 (the daily view of the same station 47412 that JMA_SOURCE cites),
-       fetched once per month into data/cache/jma/ (git ignored), one CSV per year.
-Run    `uv run python -m dcopt.heat.weather 1976 2025` fetches and validates the years.
+       one tidy CSV per year, committed under data/jma/ (204 KB for 1976-2025) so the model,
+       the experiment and the app page work on a fresh clone; JMA is the source (气象庁).
+Run    `uv run python -m dcopt.heat.weather 1976 2025` fetches any missing years of the span and
+       validates the whole span against the normals (existing years are kept).
 """
 from __future__ import annotations
 
@@ -34,24 +36,24 @@ import re
 import time
 import urllib.request
 from calendar import monthrange
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 
-from dcopt.common.geo import CACHE
 from dcopt.heat.v1 import DAYS, KINDS, SNOW, TEMP
 
+ROOT = Path(__file__).resolve().parents[3]
 PREC_NO, BLOCK_NO = 14, 47412          # Sapporo, the station JMA_SOURCE cites
 URL = ("https://www.data.jma.go.jp/obd/stats/etrn/view/daily_s1.php"
        "?prec_no={prec}&block_no={block}&year={year}&month={month}&day=&view=p1")
 USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
               "Chrome/124.0 Safari/537.36")
 DELAY_S = 0.5                          # politeness delay between JMA requests
-CACHE_DIR = CACHE / "jma"
+CACHE_DIR = ROOT / "data" / "jma"
 
 # Daily-climatology normals, Sapporo 47412, 1991-2020: sum over the calendar year of the
-# per-calendar-day mean of the fetched daily observations (computed from data/cache/jma,
+# per-calendar-day mean of the fetched daily observations (computed from data/jma,
 # 2026-11-24; matches v1's monthly TEMP exactly and SNOW within 2 %). These are the
 # denominators that make a normals-like year scale to 1.0.
 HDD18_N = 3464.328                     # sum of daily max(0, 18 - T_day), C x days
@@ -204,12 +206,17 @@ def fetch_years(start: int, end: int, delay: float = DELAY_S, force: bool = Fals
 
 @dataclass(frozen=True)
 class WeatherYear:
-    """One year of weather at daily resolution, with the monthly aggregates the model runs on."""
+    """One year of weather at daily resolution, with the monthly aggregates the model runs on.
+
+    n_missing_t counts the days whose mean temperature had to be imputed from their month's
+    other days when the year was loaded from a CSV (JMA blanks them for broken instruments
+    and late uploads); 0 for years built directly from daily series."""
     year: int
     t_day: tuple[float, ...]        # daily mean temperature (C), 365 or 366 entries
     snow_day: tuple[float, ...]     # daily snowfall (cm)
     t_month: tuple[float, ...]      # monthly mean temperature (C)
     snow_month: tuple[float, ...]   # monthly snowfall totals (cm)
+    n_missing_t: int = 0
 
     @classmethod
     def from_daily(cls, year: int, t_day, snow_day) -> WeatherYear:
@@ -314,15 +321,25 @@ class WeatherYear:
 
 
 def weather_year_from_csv(year: int, path: Path) -> WeatherYear:
-    """One WeatherYear from a tidy daily CSV: monthly mean temperature, monthly snowfall total."""
-    t_day, snow_day = [], []
+    """One WeatherYear from a tidy daily CSV: monthly mean temperature, monthly snowfall total.
+
+    A missing temperature day is imputed from its month's other days and counted in n_missing_t
+    (one blank day must not sink a whole year); a month with no observation at all fails loudly —
+    that year is not worth loading."""
+    rows: list[tuple[int, float | None]] = []
+    snow_day = []
     for line in path.read_text(encoding="utf-8").splitlines()[1:]:
         month, _day, temp, snow = line.split(",")
-        if not temp:
-            raise ValueError(f"{path}: missing daily mean temperature (row: {line})")
-        t_day.append(float(temp))
-        snow_day.append(float(snow) if snow else 0.0)  # a missing snow day is a snow-free day
-    return WeatherYear.from_daily(year, t_day, snow_day)
+        rows.append((int(month), float(temp) if temp else None))
+        snow_day.append(float(snow) if snow else 0.0)
+    missing = [(m, i) for i, (m, t) in enumerate(rows) if t is None]
+    for m, i in missing:
+        seen = [t for mm, t in rows if mm == m and t is not None]
+        if not seen:
+            raise ValueError(f"{path}: month {m} has no mean-temperature observation at all")
+        rows[i] = (m, sum(seen) / len(seen))
+    wy = WeatherYear.from_daily(year, [t for _, t in rows], snow_day)
+    return replace(wy, n_missing_t=len(missing))
 
 
 def load_years(start: int, end: int) -> list[WeatherYear]:
