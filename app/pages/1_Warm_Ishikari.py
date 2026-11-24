@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from dcopt.common.geo import paths
+from dcopt.common.geo import fetch_command, missing_map_data, paths
 from dcopt.heat.v1 import (JMA_SOURCE, KINDS, MONTHS_EN, MONTHS_JA, Assumptions, design,
                          ishikari_sites, pairwise, standalone_and_shared)
 from dcopt.common.style import FONT, GRID, INK, INK2, SLOTS, SURFACE
@@ -61,6 +61,17 @@ A = Assumptions(it_load_mw=float(it), recovery=float(rec), cop=float(cop), keros
 def pick(a, b):
     return a if ja else b
 
+
+if missing := missing_map_data():
+    st.title("Warm Ishikari · " + pick("データセンターの排熱を、まちの熱に", "Data-center heat for the town"))
+    st.warning(pick(f"石狩市の地図データがありません（{len(missing)} 件のファイルが未取得: "
+                    f"{', '.join(f.name for f in missing)}）。OpenStreetMap から取得してから、このページを開き直してください"
+                    "（数分かかります）。",
+                    f"Ishikari's map data is missing ({len(missing)} file(s) not fetched yet: "
+                    f"{', '.join(f.name for f in missing)}). Fetch it from OpenStreetMap, then reload this page "
+                    "(it takes a few minutes)."))
+    st.code(fetch_command(), language="bash")
+    st.stop()
 
 dc, _ = load_sites()
 opt, pw = solve(A, assumed, k)
