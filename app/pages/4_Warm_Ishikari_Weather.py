@@ -21,16 +21,20 @@ from dcopt.heat import weather as W
 from dcopt.heat.network import Params, Scenario, build_instance, ishikari_sources, plan_for
 from dcopt.heat.v1 import DAYS, KINDS, SNOW, TEMP, ishikari_sites
 
-st.set_page_config(page_title="Warm Ishikari Weather · 石狩の排熱と気象年", layout="wide",
-                   initial_sidebar_state="expanded")
-
 M = 1e6
 YEARS = list(range(W.YEARS[0], W.YEARS[1] + 1))   # the weather years of the experiment and the selector
 RUN = "uv run python experiments/weather_years/run.py ambient both --bound"
 BAD_RESULTS = (KeyError, TypeError, ValueError, IndexError, AttributeError)   # a results.json of another shape
 
+lang = st.session_state.get("app_lang", "日本語")
+ja = lang == "日本語"
 
-@st.cache_resource(show_spinner="地図と施設を読み込み中 / Loading Ishikari's map and facilities...")
+
+def pick(a, b):
+    return a if ja else b
+
+
+@st.cache_resource(show_spinner=False)
 def load_instance():
     from dcopt.common.geo import use_overpass_mirror
     use_overpass_mirror()
@@ -38,7 +42,7 @@ def load_instance():
     return build_instance(ishikari_sources(sakura), sites), sites
 
 
-@st.cache_resource(show_spinner="50年分の気象データを読み込み中 / Loading 50 years of weather...")
+@st.cache_resource(show_spinner=False)
 def weather_years(stamp: tuple) -> list[W.WeatherYear]:
     """The usable years in data/jma; missing or unreadable files are left out. `stamp` lists the files
     and their modification times, so a year downloaded since the last load is picked up."""
@@ -55,7 +59,7 @@ def cache_stamp() -> tuple:
     return tuple(out)
 
 
-@st.cache_resource(show_spinner="その年の気象で導管網を最適化中 / Optimizing the network for this year...")
+@st.cache_resource(show_spinner=False)
 def solve_year(year: int | None, it_level: str, price: float, _w: W.WeatherYear | None):
     """The network for one weather year (_w is that year's weather; the year is the cache key), or for
     the climate normals when year is None: the monthly demand of the model's default scenarios."""
@@ -102,16 +106,11 @@ def rp_net(res: dict | None, year: int | None) -> float | None:
 
 
 with st.sidebar:
-    lang = st.radio("表示言語 / Language", ["日本語", "English"], horizontal=True, key="weather_lang")
-    ja = lang == "日本語"
-    st.subheader("シナリオ / Scenario")
-    year = st.select_slider("気象年 / Weather year", options=YEARS, value=1984)
-    it_level = st.radio("データセンターのIT負荷 / IT load", ["high", "low"], horizontal=True)
-    price = st.slider("灯油価格（円/L） / Kerosene (yen/L)", 70.0, 170.0, 156.8, 0.2)
-
-
-def pick(a, b):
-    return a if ja else b
+    st.subheader(pick("シナリオ", "Scenario"))
+    year = st.select_slider(pick("気象年", "Weather year"), options=YEARS, value=1984, key="weather_year")
+    it_level = st.radio(pick("データセンターのIT負荷", "Data-center IT load"), ["high", "low"], horizontal=True,
+                        key="weather_it")
+    price = st.slider(pick("灯油価格（円/L）", "Kerosene (yen/L)"), 70.0, 170.0, 156.8, 0.2, key="weather_price")
 
 
 def weather_for(year: int, cached: list[W.WeatherYear]) -> tuple[W.WeatherYear | None, str | None]:
@@ -231,7 +230,8 @@ st.caption(pick("平年値だけの計画を、1976〜2025年の実際の毎日�
                 "(JMA, Sapporo). The top section shows the experiment's results; the bottom re-optimizes "
                 "the network for one chosen year."))
 
-cached = weather_years(cache_stamp())
+with st.spinner(pick("50年分の気象データを読み込み中…", "Loading 50 years of weather…")):
+    cached = weather_years(cache_stamp())
 w, why = weather_for(year, cached)
 if w is None:                       # the nearest year it has instead, else the climate normals
     w = min(cached, key=lambda c: (abs(c.year - year), c.year), default=None)
@@ -291,7 +291,8 @@ else:
                     f"Annual mean {sum(w.t_day) / len(w.t_day):.1f} °C, snowfall {sum(w.snow_day):.0f} cm, "
                     f"coldest-month mean {min(w.t_month):.1f} °C. Heating-degree-day index {w.hdd18_index:.2f}, "
                     f"snow index {w.snow_index:.2f} (normals = 1.00)."))
-plan = solve_year(shown, it_level, price, w)
+with st.spinner(pick("その年の気象で導管網を最適化中…", "Optimizing the network for this year…")):
+    plan = solve_year(shown, it_level, price, w)
 hedge = rp_net(res, shown)
 
 c = st.columns(5)
