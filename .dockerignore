@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+.pytest_cache
+.ruff_cache
+**/__pycache__
+*.py[cod]
+.env
+.env.*
+deploy/.env
+out
+results
+data/raw
+data/cache
+research_notes
+*.lic

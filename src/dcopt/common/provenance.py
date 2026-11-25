@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -103,7 +104,8 @@ def stamp(**extra) -> dict:
         except metadata.PackageNotFoundError:
             pass
     return {"created_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-            "git_commit": _git("rev-parse", "HEAD"),
+            # outside a git checkout (the deploy image) the commit comes from DCOPT_GIT_COMMIT
+            "git_commit": _git("rev-parse", "HEAD") or os.environ.get("DCOPT_GIT_COMMIT", ""),
             "uncommitted_changes": bool(_git("status", "--porcelain", "--untracked-files=no")),
             "data_fingerprint": fingerprint(),
             "data_problems": verify(),

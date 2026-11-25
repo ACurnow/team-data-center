@@ -1,0 +1,61 @@
+# Team Data Center on the VPS: the Streamlit app behind a Cloudflare Tunnel, gated by Cloudflare Access.
+# No port is published on the host; the only way in is the tunnel. See deploy/README.md.
+#
+#   docker compose -f deploy/compose.yaml up -d --build          # app + tunnel
+#   docker compose -f deploy/compose.yaml run --rm build-data    # (re)build the generated data
+name: team-data-center
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: Dockerfile
+    args:
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
+  image: team-data-center:latest
+  # Only what the app reads; the tunnel token stays with cloudflared. Values come from deploy/.env.
+  environment:
+    CF_API_KEY: ${CF_API_KEY:-}
+    CARBONFORGE_BASE_URL: ${CARBONFORGE_BASE_URL:-}
+    LLM_MODEL: ${LLM_MODEL:-}
+    DCOPT_THREADS: ${DCOPT_THREADS:-2}
+  volumes:
+    - cache:/app/data/cache
+    - out:/app/out
+    - results:/app/results
+
+services:
+  app:
+    <<: *app
+    restart: unless-stopped
+    cpus: ${APP_CPUS:-3}
+    mem_limit: ${APP_MEMORY:-6g}
+    networks: [internal]
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.0
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in deploy/.env}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [internal]
+
+  # One-off job, not started by `up`: downloads the map data and writes out/ and results/.
+  build-data:
+    <<: *app
+    profiles: [build]
+    environment: {}   # no DCOPT_THREADS: export_siting.py runs one-thread solves side by side
+    command: ["bash", "deploy/build-data.sh"]
+    cpus: ${BUILD_CPUS:-4}
+    mem_limit: ${BUILD_MEMORY:-7g}
+    networks: [internal]
+
+volumes:
+  cache:
+  out:
+  results:
+
+networks:
+  internal: {}
