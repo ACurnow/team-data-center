@@ -85,10 +85,13 @@ def solve_with_new_dc(mw: float, lat: float, lon: float):
 
 
 @st.cache_resource(show_spinner=False)
-def solve(A: Assumptions, assumed: bool, k: int):
+def solve(A: Assumptions, assumed: bool, k: int, _start=None):
+    """The optimal network and the pick-pairs baseline. `_start` (left out of the cache key) is a
+    nearby plan that warm-starts the solver; it changes how fast the plan is found, not the plan."""
     dc, sites = load_sites()
     kinds = set(KIND_ORDER) if assumed else set(KIND_ORDER) - ASSUMED
-    return design(dc, sites, A, k=k, kinds=kinds, time_limit=60), pairwise(dc, sites, A, kinds=kinds)
+    return (design(dc, sites, A, k=k, kinds=kinds, time_limit=60, start=_start),
+            pairwise(dc, sites, A, kinds=kinds))
 
 
 with st.sidebar:
@@ -132,8 +135,13 @@ if missing := missing_map_data():
 with st.spinner(pick("石狩市の地図と施設を読み込み中…", "Loading Ishikari's map and facilities…")):
     dc, _ = load_sites()
 with st.spinner(pick("熱導管ネットワークを最適化中…", "Optimizing the heat network…")):
-    opt, pw = solve(A, assumed, k)
-    base = opt if A == A0 else solve(A0, assumed, k)[0]
+    # Warm starts: the no-policy plan starts from the last no-policy plan on the same sites and
+    # pipes (a slider move), and the plan under a policy starts from the no-policy plan.
+    last = st.session_state.get("heat_last_base")
+    last = last[1] if last and last[0] == (assumed, k) else None
+    base, pw0 = solve(A0, assumed, k, _start=last)
+    st.session_state["heat_last_base"] = ((assumed, k), base)
+    opt, pw = (base, pw0) if A == A0 else solve(A, assumed, k, _start=base)
     if A != A0:
         kept = replace(base, A=A)              # the no-policy plan, valued under the policy
         if kept.annual_net > opt.annual_net:   # a time-limited search must not do worse than keeping that plan
