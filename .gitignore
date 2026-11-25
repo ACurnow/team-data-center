@@ -21,6 +21,7 @@ research_notes/
 *.lic
 .env
 .env.*
+!.env.example
 
 # Windows download markers
 *:Zone.Identifier
