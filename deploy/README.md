@@ -44,13 +44,16 @@ The health endpoint `/_stcore/health` is behind Access as well. The container ch
 
 ## 2. VPS (once)
 
-Docker Engine with the compose plugin, and a firewall that allows SSH only (the tunnel is outbound):
+Ubuntu's Docker packages, the user in the `docker` group, and a firewall that allows SSH only (the
+tunnel is outbound):
 
 ```bash
-sudo ufw default deny incoming && sudo ufw allow OpenSSH && sudo ufw enable
-git clone https://github.com/ACurnow/team-data-center.git /srv/team-data-center
-cd /srv/team-data-center && git switch deploy/vps        # until it is merged into main
-cp deploy/.env.example deploy/.env && chmod 600 deploy/.env && nano deploy/.env   # TUNNEL_TOKEN
+sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 docker-buildx
+sudo usermod -aG docker "$USER"                                       # log in again afterwards
+sudo ufw allow OpenSSH && sudo ufw default deny incoming && sudo ufw --force enable
+git clone -b deploy/vps https://github.com/ACurnow/team-data-center.git ~/team-data-center
+cd ~/team-data-center && cp deploy/.env.example deploy/.env && chmod 600 deploy/.env
+nano deploy/.env                                                      # TUNNEL_TOKEN
 ```
 
 Docker publishes no host port here, so its own iptables rules do not open anything past ufw.
@@ -58,10 +61,10 @@ Docker publishes no host port here, so its own iptables rules do not open anythi
 ## 3. First start
 
 ```bash
-cd /srv/team-data-center
+cd ~/team-data-center
 export GIT_COMMIT=$(git rev-parse --short HEAD)
 docker compose -f deploy/compose.yaml build
-docker compose -f deploy/compose.yaml run --rm build-data     # long: map download, exports, weather run
+mkdir -p ~/logs && nohup docker compose -f deploy/compose.yaml run --rm build-data > ~/logs/build-data.log 2>&1 &   # long; the app can run meanwhile
 docker compose -f deploy/compose.yaml up -d
 docker compose -f deploy/compose.yaml ps                      # app "healthy", cloudflared running
 ```
@@ -78,7 +81,7 @@ rebuilds of the image.
 The fork follows `upstream/main`. On the VPS:
 
 ```bash
-cd /srv/team-data-center && git pull --ff-only
+cd ~/team-data-center && git pull --ff-only
 export GIT_COMMIT=$(git rev-parse --short HEAD)
 docker compose -f deploy/compose.yaml up -d --build
 docker compose -f deploy/compose.yaml run --rm build-data --force   # only when models or exports changed
