@@ -46,10 +46,16 @@ services:
   build-data:
     <<: *app
     profiles: [build]
-    environment: {}   # no DCOPT_THREADS: export_siting.py runs one-thread solves side by side
+    environment:      # no DCOPT_THREADS: export_siting.py runs one-thread solves side by side
+      SITING_WORKERS: ${SITING_WORKERS:-3}
     entrypoint: ["bash", "deploy/build-data.sh"]   # so `run --rm build-data --force` passes --force
-    cpus: ${BUILD_CPUS:-4}
-    mem_limit: ${BUILD_MEMORY:-7g}
+    # Leave room for the app, cloudflared and whatever else runs on the box: at 4 cores and 7 GB the
+    # build starved them and the tunnel dropped. Low CPU weight: the app wins when both want the CPU.
+    cpus: ${BUILD_CPUS:-3}
+    mem_limit: ${BUILD_MEMORY:-4500m}
+    cpu_shares: 256
+    healthcheck:
+      disable: true   # the image's check is for the app
     networks: [internal]
 
 volumes:

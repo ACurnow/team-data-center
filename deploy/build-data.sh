@@ -18,7 +18,7 @@ step() {  # step <output that marks it done> <command...>
 step data/cache/ishikari/study_drive.graphml python scripts/fetch_data.py --area ishikari  # Warm Ishikari, Weather
 step out/heat_story/story.json            python scripts/export_heat_story.py           # Map, Proposals base map
 step out/proposals/proposals.json         python scripts/export_proposals.py            # Proposals (a few minutes)
-step out/siting/siting.json               python scripts/export_siting.py --workers "$(nproc)"  # Siting (~15 min on 8 cores)
+step out/siting/siting.json               python scripts/export_siting.py --workers "${SITING_WORKERS:-3}"  # Siting (~0.9 GB per worker)
 step results/weather_years                python experiments/weather_years/run.py       # Weather results panel
 step data/cache/hepco_area                python -m dcopt.matching.records 2024 2025    # Renewable matching (HEPCO records)
 echo "== all data in place"

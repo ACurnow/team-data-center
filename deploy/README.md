@@ -19,9 +19,11 @@ browser ── live.heatx.jp.net ── Cloudflare Access (login) ── Tunnel 
 ## Sizing (4 cores, 8 GB)
 
 Pages solve MILPs with HiGHS while the page runs. The app container is capped at 3 CPUs and 6 GB,
-and each solve at 2 threads (`DCOPT_THREADS`), which leaves a core for the OS and the tunnel. The
-`build-data` job may use all 4 cores and 7 GB, so run it while the app is quiet, and pause other
-services on the box (e.g. agent-office) for the first build. Change the caps in `deploy/.env`.
+and each solve at 2 threads (`DCOPT_THREADS`). The `build-data` job is capped at 3 CPUs and 4.5 GB
+with a low CPU weight, and the siting export runs 3 workers (about 0.9 GB each, on top of ~1.2 GB
+in the parent). A first run with 4 CPUs, 7 GB and 4 workers left the box without free memory, with
+nothing else running on it; the load average went past 50 and the tunnel dropped. The box has no
+swap. Change the caps in `deploy/.env`.
 
 ## 1. Cloudflare (once)
 
