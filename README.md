@@ -111,6 +111,16 @@ Notes on the table:
 - These are the best plans found, with Gurobi (gaps of 4–11 % to its bound after 300 s per policy). HiGHS alone finds plans within 3.4 % of them and the same picture, except that it keeps the 13-site plan at 4,300 yen/t.
 - Every policy was given the same candidate links, and every plan found was evaluated under every policy, so the plans differ because of the policy and not because of the search ([method](docs/formulations/heat-model.md#12-co2-and-policy-scenarios), [both tables](docs/formulations/heat.md)).
 
+### Real weather: 50 years of daily observations
+
+The four scenarios above differ only in IT load and kerosene price; their heat demand is the same. `experiments/weather_years` adds the weather. Each year from 1976 to 2025 of JMA's daily observations for Sapporo [12] becomes one scenario, turned into monthly demand with daily weights for each kind of user. Against the climate normals, the heating-degree-day index runs from 0.913 (2023) to 1.142 (1984) and the snowfall index from 0.504 (1989) to 1.456 (2000).
+
+- **The published plan holds up in real weather.** Built without any daily data, it earns 133.5 in expectation over the 50 years at the high IT load and 156.8 yen/L, and 108.2 in its worst year. The share of demand it leaves unserved grows only from 70.7 to 72.4 % between the average and the worst year (most of it is at sites the plan does not connect).
+- **Plans built on different scenario sets cannot yet be compared fairly.** In the published formulation each user's connection is sized for the worst month of the scenario set, so a wider set of weather years excludes builds that a narrower set allows. The plan for the mean weather year evaluates to 149.7, above the 134.4 bound of the 50-year model: it lies outside that model, and the difference is not a planning result.
+- **The connection size can now be a decision.** With `--decided` the weather-years run lets the model choose each user's connection pipe, so plans from different scenario sets live in one model. The published results above stay on the fixed connection sizes.
+
+Run: `uv run python experiments/weather_years/run.py ambient both --bound` (add `--decided` for the connection-size decision). The app's *Weather years* page shows the results and re-optimizes the network for one chosen year. No plan here is certified optimal (kernel-search gaps of 11–19 %). Tables, method and caveats: [docs/formulations/heat.md](docs/formulations/heat.md), section *Weather years*.
+
 ### What the result rests on
 
 The published plan (93.8 M yen a year, 13 sites, 7.8 km) was computed again with each input moved, one at a time, to the end of the range found in published sources. The sources and the reading of each input are in [docs/input-evidence.md](docs/input-evidence.md); the runs are `experiments/input_sensitivity` and `experiments/heat_loss_check`.
@@ -345,12 +355,25 @@ uv run pytest                                          # tests; those that need 
 - Carbon price and subsidy scenarios: `uv run python experiments/heat_policy/run.py`
 - Theme 2, every bus of six benchmark systems (downloads PGLib-OPF): `uv run python experiments/grid_hosting/run.py --workers 8`
 - Theme 4, the numbers and the figure: `uv run python scripts/export_matching.py --portfolio` and `uv run python scripts/render_matching_figure.py`
+- Weather years, 50 years of Sapporo weather: `uv run python experiments/weather_years/run.py ambient both --bound` (`--decided` makes the connection size a decision)
+- Inputs moved to the ends of their published ranges: `uv run python experiments/input_sensitivity/run.py --workers 6` (about ten minutes)
+- Heat loss of the plans' own pipes: `uv run python scripts/export_heat_network_v2.py`, then `uv run python experiments/heat_loss_check/run.py`
+- HiGHS against Gurobi on the full theme-1 model: `uv run python experiments/solver_compare/run.py` (Gurobi is optional; without it, `--solvers highs`)
+- Theme 2, the global-solver cross-check (Gurobi is optional): `uv run --extra gurobi python experiments/grid_global/run.py --download`
+
+**The app** (`uv run streamlit run app/streamlit_app.py`; the data each page needs: [app/README.md](app/README.md))
+- One language switch in the sidebar (日本語 / English) sets every page; the choice is kept in the URL (`?lang=`).
+- Seven pages: *Waste-heat network* (Warm Ishikari: model v1 for one data center, every assumption adjustable, and the live simulation), *Animation* (Warm Ishikari Map), *Proposals* (Warm Ishikari Proposals), *Weather years*, *Grid hosting capacity*, *Siting* and *Renewable matching*.
 
 **Live simulation (the app's Warm Ishikari page)**
 - Type a what-if in either language ("電気料金を2倍にして" / "double the electricity price"); the LLM
   (carbonforge-flash, OpenAI-compatible via `CF_API_KEY`, override endpoint with `CARBONFORGE_BASE_URL`
   and model with `LLM_MODEL`) maps it onto the page's knobs, the deterministic model re-runs, and the
   LLM explains the result. The model never computes numbers; it chooses inputs and explains outputs.
+- The assumption sliders sit in a form: nothing is solved until you press 再計算 / Recalculate. Solved plans
+  are kept on disk in `data/cache/warm_ishikari_plans/` (not committed; set `DCOPT_PLAN_CACHE` to keep them
+  elsewhere), so a setting solved before loads at once; a change to the model's code (`v1.py`) sets the saved
+  plans aside. The caption shows the solve time, the MIP gap and whether the plan was a saved one.
 
 **Redrawing the animations**
 1. Base map and theme-1 plans: `uv run python scripts/export_heat_story.py` and `uv run python scripts/export_heat_network_v2.py`
@@ -358,16 +381,16 @@ uv run pytest                                          # tests; those that need 
 3. Theme 2: `uv run python scripts/render_theme_animations.py --theme grid` (the count over all buses appears once `experiments/grid_hosting/run.py` has run)
 4. Theme 3: `uv run python scripts/export_siting.py` (with `--networks-only` when the export is already there), then `uv run python scripts/render_theme_animations.py --theme siting`
 
-Add `--lang ja` for the Japanese versions; they need a Japanese font such as Noto Sans CJK JP.
+Add `--lang ja` for the Japanese versions; they need a Japanese font such as Noto Sans CJK JP. For print, `render_theme_animations.py --stills` also writes every frame the animation holds on as a PNG (`--scale 3` draws at three times the size), and `--bare` draws those frames as maps without the text panel.
 
 ## Repository layout
 
 ```
-src/dcopt/heat      theme 1: model v1 (v1.py), v2 (network.py), proposals (proposal.py)
-src/dcopt/grid      theme 2: networks (cases.py), relaxations (relax.py), AC points (ac.py), brackets (hosting.py)
+src/dcopt/heat      theme 1: model v1 (v1.py), v2 (network.py), proposals (proposal.py), weather years (weather.py), live what-if knobs (whatif.py), pipe heat loss (loss.py)
+src/dcopt/grid      theme 2: networks (cases.py), the lifted model the relaxations and the AC problem share (lifted.py), relaxations (relax.py), AC points (ac.py), brackets (hosting.py)
 src/dcopt/siting    theme 3: candidate sites (candidates.py), heat value (heat_value.py), grid distances (gridmap.py), location model (model.py)
 src/dcopt/matching  theme 4: area records (records.py), counting (score.py), replay of the records (system.py), cheapest portfolio (portfolio.py)
-src/dcopt/common    shared code: road network, styles
+src/dcopt/common    shared code: road network (geo.py), styles (style.py), data register and checksums (provenance.py), LLM client (llm.py), published input ranges (evidence.py), worker processes (workers.py)
 app/                Streamlit app
 web/heat_story/     animated map page
 scripts/            data download, exports, figures
@@ -420,7 +443,7 @@ Checking results on large, realistic models may need a solver of that strength. 
 
 ## References
 
-Facts and parameters [1–22], then related literature: waste-heat networks and data-center heat reuse [23–30], robust optimization [31–36], grid hosting capacity [37–47], siting and flexible loads [48–52]. CO₂ factors and policy sources [53–58]. Methods and the solver of theme 2 [59–64]. Grid connection costs [66]. Renewable matching: the records and the published curtailment [66, 67], studies of clean-electricity procurement [68, 69], costs [70, 71].
+Facts and parameters [1–22], then related literature: waste-heat networks and data-center heat reuse [23–30], robust optimization [31–36], grid hosting capacity [37–47], siting and flexible loads [48–52]. CO₂ factors and policy sources [53–58]. Methods and the solver of theme 2 [59–64]. Grid connection costs [65]. Renewable matching: the records and the published curtailment [66, 67], studies of clean-electricity procurement [68, 69], costs [70, 71].
 
 1. Hack × Hokkaido Build Week 2026, AI build week in Sapporo, 23–27 November 2026. https://www.hackhokkaido.com/ (accessed 2026-11-24).
 2. Broadband Tower (2025-11-28). Press release on Ishikari Renewable Energy Data Center No. 1 (in Japanese). https://www.bbtower.co.jp/ir/pr/docs/20251128_ishikari_release.pdf

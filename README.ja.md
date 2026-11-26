@@ -111,6 +111,16 @@
 - 表は、Gurobiで見つけた最良の計画です（政策ごとに300秒、上界とのギャップは4〜11%）。HiGHSだけで求めた計画は、これらから3.4%以内で、全体の傾向も同じです。ただし4,300円/tでは13か所のままになります。
 - どの政策にも同じ候補区間を与え、見つかったすべての計画をすべての政策のもとで評価しています。計画の違いが、探索のばらつきではなく政策によるものになるようにするためです（[方法](docs/formulations/heat-model.md#12-co2-and-policy-scenarios)、[2つの表](docs/formulations/heat.md)、いずれも英語）。
 
+### 実際の気象：50年分の日別観測
+
+上の4つのシナリオは、IT負荷と灯油価格だけが違い、熱の需要は同じです。`experiments/weather_years` は気象を加えます。札幌の気象庁の日別値 [12] の1976〜2025年の各年を1つのシナリオとし、需要家の種類ごとの日別の重みで月ごとの需要に直します。平年値と比べると、暖房度日の指数は0.913（2023年）から1.142（1984年）、降雪量の指数は0.504（1989年）から1.456（2000年）の幅があります。
+
+- **公表した計画は、実際の気象でも崩れません。** 日別のデータを使わずに作った計画が、IT高負荷・灯油156.8円/Lのもとで、50年の期待値で年1億3,350万円、最も悪い年でも1億820万円です。届けられない需要の割合は、平均の年の70.7 %から最も悪い年の72.4 %に増えるだけです（その大半は、計画がつながない施設の分です）。
+- **異なるシナリオの組で作った計画は、まだ公平に比べられません。** いまの定式化では、各施設の接続管の太さは、シナリオの組の最も厳しい月に合わせて決まります。そのため、気象年の幅が広い組では、狭い組なら許される計画が除かれます。平均的な気象年向けの計画は評価で1億4,970万円となり、50年のモデルの上界1億3,440万円を超えます。つまりそのモデルの外にある計画で、この差は計画の結果ではありません。
+- **接続管の太さを、決定変数にできるようになりました。** `--decided` を付けると、気象年の実験は各施設の接続管の太さをモデルに選ばせます。異なるシナリオの組の計画を、1つのモデルの中で扱えます。上の公表した結果は、これまでどおり接続管の太さを固定したモデルによるものです。
+
+実行：`uv run python experiments/weather_years/run.py ambient both --bound`（接続管の太さを決定変数にするには `--decided` を追加）。アプリの「気象年で試す」ページで、結果を見たり、選んだ1年について導管網を最適化し直したりできます。ここでの計画は、どれも最適性が保証されていません（カーネル探索のギャップは11〜19 %）。表・方法・注意点：[docs/formulations/heat.md](docs/formulations/heat.md) の *Weather years* の節（英語）。
+
 ### この結果が何に支えられているか
 
 公表中の計画（年9,380万円、13か所、7.8 km）を、入力を1つずつ、公表されている値の範囲の端まで動かして計算し直しました。各入力の出典と読み方は [docs/input-evidence.ja.md](docs/input-evidence.ja.md) にあります。計算は `experiments/input_sensitivity` と `experiments/heat_loss_check` です。
@@ -347,6 +357,19 @@ uv run pytest                                          # テスト（地図デ�
 - 炭素価格と補助率のシナリオ：`uv run python experiments/heat_policy/run.py`
 - テーマ2、6つの試験系統の全母線（PGLib-OPFをダウンロードします）：`uv run python experiments/grid_hosting/run.py --workers 8`
 - テーマ4、数値と図：`uv run python scripts/export_matching.py --portfolio` と `uv run python scripts/render_matching_figure.py --lang ja`
+- 気象年、札幌の50年分の気象：`uv run python experiments/weather_years/run.py ambient both --bound`（`--decided` で接続管の太さを決定変数に）
+- 入力を公表値の範囲の端に動かす：`uv run python experiments/input_sensitivity/run.py --workers 6`（約10分）
+- 計画の導管そのものの熱損失：`uv run python scripts/export_heat_network_v2.py` のあと `uv run python experiments/heat_loss_check/run.py`
+- テーマ1の全体モデルでのHiGHSとGurobiの比較：`uv run python experiments/solver_compare/run.py`（Gurobiは任意。なければ `--solvers highs`）
+- テーマ2、大域ソルバーによる照合（Gurobiは任意）：`uv run --extra gurobi python experiments/grid_global/run.py --download`
+
+**アプリ**（`uv run streamlit run app/streamlit_app.py`。各ページに必要なデータは [app/README.md](app/README.md)、英語）
+- サイドバーの言語の切り替え（日本語 / English）が、すべてのページに効きます。選んだ言語はURL（`?lang=`）に残ります。
+- 7つのページ：「排熱の導管網」（Warm Ishikari：1つのデータセンターのモデルv1。仮定はすべて変えられ、ライブ・シミュレーションもここにあります）、「アニメーション」（Warm Ishikari Map）、「提案書」（Warm Ishikari Proposals）、「気象年で試す」、「系統の受け入れ余地」、「立地」、「再エネの一致」。
+
+**ライブ・シミュレーション（アプリのWarm Ishikariページ）**
+- もしもの条件を、日本語でも英語でも文章で入力できます（「電気料金を2倍にして」/ "double the electricity price"）。LLM（carbonforge-flash、OpenAI互換、`CF_API_KEY` で利用。接続先は `CARBONFORGE_BASE_URL`、モデルは `LLM_MODEL` で変更できます）がそれをページの設定値に当てはめ、決定的なモデルが計算し直し、LLMが結果を説明します。LLMは数値を計算しません。入力を選び、出力を説明するだけです。
+- 仮定のスライダーはフォームにまとめてあり、「再計算」を押すまで計算しません。解いた計画は `data/cache/warm_ishikari_plans/` に保存され（コミットしません。別の場所にするには `DCOPT_PLAN_CACHE`）、一度解いた条件はすぐに表示されます。モデルのコード（`v1.py`）を変えると、保存した計画は使われなくなります。画面の説明に、計算時間、MIPギャップ、保存済みの結果かどうかが表示されます。
 
 **アニメーションの作り直し方**
 1. 地図とテーマ1の計画：`uv run python scripts/export_heat_story.py` と `uv run python scripts/export_heat_network_v2.py`
@@ -354,16 +377,16 @@ uv run pytest                                          # テスト（地図デ�
 3. テーマ2：`uv run python scripts/render_theme_animations.py --theme grid --lang ja`（全母線の集計は、`experiments/grid_hosting/run.py` を実行してあれば表示されます）
 4. テーマ3：`uv run python scripts/export_siting.py`（出力がすでにあれば `--networks-only`）のあと、`uv run python scripts/render_theme_animations.py --theme siting --lang ja`
 
-日本語版にはNoto Sans CJK JPなどの日本語フォントが必要です。英語版は `--lang ja` を外します。
+日本語版にはNoto Sans CJK JPなどの日本語フォントが必要です。英語版は `--lang ja` を外します。印刷用には、`render_theme_animations.py --stills` で、アニメーションが止まる各コマもPNGで書き出せます（`--scale 3` で3倍の大きさ）。`--bare` を付けると、それらのコマを説明の枠のない地図だけで描きます。
 
 ## 構成
 
 ```
-src/dcopt/heat      テーマ1：モデルv1（v1.py）、v2（network.py）、提案書（proposal.py）
-src/dcopt/grid      テーマ2：系統データ（cases.py）、緩和（relax.py）、交流の運転点（ac.py）、上限と下限（hosting.py）
+src/dcopt/heat      テーマ1：モデルv1（v1.py）、v2（network.py）、提案書（proposal.py）、気象年（weather.py）、ライブ・シミュレーションの設定値（whatif.py）、導管の熱損失（loss.py）
+src/dcopt/grid      テーマ2：系統データ（cases.py）、緩和と交流の問題に共通の持ち上げモデル（lifted.py）、緩和（relax.py）、交流の運転点（ac.py）、上限と下限（hosting.py）
 src/dcopt/siting    テーマ3：候補地（candidates.py）、排熱の価値（heat_value.py）、系統までの距離（gridmap.py）、立地のモデル（model.py）
 src/dcopt/matching  テーマ4：需給実績（records.py）、数え方（score.py）、実績をなぞる再計算（system.py）、いちばん安い組み合わせ（portfolio.py）
-src/dcopt/common    共通：道路網、配色
+src/dcopt/common    共通：道路網（geo.py）、配色（style.py）、データの登録とチェックサム（provenance.py）、LLMの接続（llm.py）、入力の公表値の範囲（evidence.py）、並列の計算（workers.py）
 app/                Streamlitのアプリ
 web/heat_story/     アニメーション地図のページ
 scripts/            データ取得、書き出し、図
@@ -414,7 +437,7 @@ tests/              合成データでの単体テストとアプリのテスト
 
 ## 参考文献
 
-事実とパラメータの出典 [1–22]、関連文献：排熱の導管網とデータセンター排熱の利用 [23–30]、ロバスト最適化 [31–36]、系統の受け入れ余地 [37–47]、立地と柔軟な負荷 [48–52]、CO₂の排出係数と政策の出典 [53–58]、テーマ2の手法とソルバー [59–64]、系統接続の費用 [66]、再エネの一致：需給実績と公表されている抑制量 [66, 67]、電力調達に関する研究 [68, 69]、費用 [70, 71]。
+事実とパラメータの出典 [1–22]、関連文献：排熱の導管網とデータセンター排熱の利用 [23–30]、ロバスト最適化 [31–36]、系統の受け入れ余地 [37–47]、立地と柔軟な負荷 [48–52]、CO₂の排出係数と政策の出典 [53–58]、テーマ2の手法とソルバー [59–64]、系統接続の費用 [65]、再エネの一致：需給実績と公表されている抑制量 [66, 67]、電力調達に関する研究 [68, 69]、費用 [70, 71]。
 
 1. Hack × Hokkaido Build Week 2026, AI build week in Sapporo, 23–27 November 2026. https://www.hackhokkaido.com/ (accessed 2026-11-24).
 2. Broadband Tower (2025-11-28). Press release on Ishikari Renewable Energy Data Center No. 1 (in Japanese). https://www.bbtower.co.jp/ir/pr/docs/20251128_ishikari_release.pdf
@@ -427,7 +450,7 @@ tests/              合成データでの単体テストとアプリのテスト
 9. Impress Cloud Watch (2024). KCCS zero-emission data center Ishikari (in Japanese). https://cloud.watch.impress.co.jp/docs/news/1627835.html ; Ministry of the Environment. https://www.env.go.jp/content/900514282.pdf
 10. Impress Cloud Watch (2025-10-23). NTT-ME container data centers in Ishikari (in Japanese). https://cloud.watch.impress.co.jp/docs/news/2057156.html
 11. 資源エネルギー庁 (2026). 石油製品価格調査, survey of 2026-11-16 (Agency for Natural Resources and Energy, petroleum product prices). https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/xlsx/261118.xlsx
-12. 気象庁. 平年値（1991〜2020年）札幌 (Japan Meteorological Agency, climate normals, Sapporo). https://www.data.jma.go.jp/obd/stats/etrn/view/nml_sfc_ym.php?prec_no=14&block_no=47412
+12. 気象庁. 平年値（1991〜2020年）札幌 (Japan Meteorological Agency, climate normals, Sapporo). https://www.data.jma.go.jp/obd/stats/etrn/view/nml_sfc_ym.php?prec_no=14&block_no=47412 ; 同 日別値 (daily observations, same station): https://www.data.jma.go.jp/obd/stats/etrn/view/daily_s1.php?prec_no=14&block_no=47412
 13. European Union (2023). Directive (EU) 2023/1791 on energy efficiency, Articles 12 and 26. https://eur-lex.europa.eu/eli/dir/2023/1791/oj
 14. 総務省・経済産業省 (2025). ワット・ビット連携官民懇談会 取りまとめ1.0 (MIC and METI, public-private council on watt-bit coordination, summary 1.0). https://www.soumu.go.jp/main_content/001014454.pdf
 15. Tachibana, M. (2023). Doctoral thesis, Yokohama National University: cost of small district-heating networks (values read from charts). https://ynu.repo.nii.ac.jp/record/12712/files/tachibana_masaya-thesis.pdf
