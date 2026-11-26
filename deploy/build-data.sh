@@ -18,6 +18,6 @@ step() {  # step <output that marks it done> <command...>
 step data/cache/ishikari/study_drive.graphml python scripts/fetch_data.py --area ishikari  # Warm Ishikari, Weather
 step out/heat_story/story.json            python scripts/export_heat_story.py           # Map, Proposals base map
 step out/proposals/proposals.json         python scripts/export_proposals.py            # Proposals (a few minutes)
-step out/siting/siting.json               python scripts/export_siting.py               # Siting (~15 min)
+step out/siting/siting.json               python scripts/export_siting.py --workers "$(nproc)"  # Siting (~15 min on 8 cores)
 step results/weather_years                python experiments/weather_years/run.py       # Weather results panel
 echo "== all data in place"
