@@ -6,11 +6,16 @@ deterministic model re-runs. The LLM never computes results: it chooses inputs a
 the numbers the model produced.
 """
 import json
-from decimal import ROUND_HALF_UP, Decimal
+import re
+import unicodedata
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from dcopt.common import llm
 
 M = 1e6
+# UI limit, not a model parameter: a what-if is one or two sentences, and a cap keeps a pasted
+# document out of the prompt (assumption: 500 characters is ample for either language)
+MAX_QUESTION_CHARS = 500
 
 # id, ja label, en label, kind, lo, hi, step, unit note for the prompt
 KNOBS = [
@@ -41,6 +46,7 @@ class WhatifError(ValueError):
 
 def parse_prompt(current: dict, text: str) -> str:
     """The single user message asking the model to map free text onto the knob list."""
+    text = text[:MAX_QUESTION_CHARS]
     lines = [f"{i} ({ja} / {en}, {kind}"
              + (f", {lo}–{hi}" if lo is not None else "")
              + (f", now {current[i]}" if i in current else "") + ")"
@@ -105,7 +111,7 @@ def parse_patch(text: str, current: dict, *, llm_chat) -> dict:
                 v = min(max(v, lo), hi)
             if step:
                 q = Decimal(str(step))
-                v = float((Decimal(str(v)) / q).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * q)
+                v = float((Decimal(str(v)) / q).quantize(Decimal(1), rounding=ROUND_HALF_UP) * q)
             out[key] = int(v) if kind == "int" else v
     ndc = parsed.get("new_data_center")
     new_dc = None
@@ -132,9 +138,6 @@ def explain_prompt(question: str, changed: dict, before: dict, after: dict, lang
     data center) pass through as-is.
     """
     ja = lang == "ja"
-    diff = "\n".join(f"- {(BY_ID[k][1] if ja else BY_ID[k][2]) if k in BY_ID else k}: "
-                     f"{before.get(k, '—')} → {v}" for k, v in changed.items()) \
-        or ("- 変更なし / no change" if ja else "- no change")
     if ja:
         head = ("あなたは熱供給ネットワークの結果を読み解く説明者です。以下の「変更」と「結果」だけ"
                 "を使って、ユーザーの質問に3〜6文で答えてください。ここに挙げていない数値は"
@@ -143,8 +146,54 @@ def explain_prompt(question: str, changed: dict, before: dict, after: dict, lang
         head = ("You explain what a district-heat network model computed. Use ONLY the numbers in "
                 "'changes' and 'results' below; answer the user's question in 3-6 sentences and "
                 "never introduce numbers of your own.")
-    return (head + f"\n\nquestion: {question}\n\nchanges:\n{diff}\n\n"
+    return head + "\n\n" + explain_facts(question, changed, before, after, lang)
+
+
+def explain_facts(question: str, changed: dict, before: dict, after: dict, lang: str) -> str:
+    """The part of the explain prompt that carries numbers: the question, the changes, the results."""
+    question = question[:MAX_QUESTION_CHARS]
+    ja = lang == "ja"
+    diff = "\n".join(f"- {(BY_ID[k][1] if ja else BY_ID[k][2]) if k in BY_ID else k}: "
+                     f"{before.get(k, '—')} → {v}" for k, v in changed.items()) \
+        or ("- 変更なし / no change" if ja else "- no change")
+    return (f"question: {question}\n\nchanges:\n{diff}\n\n"
             f"results: {json.dumps(after, ensure_ascii=False)}")
+
+
+# a number not glued to a letter (so the 2 in CO2 is not a number), with optional thousands commas
+_NUMBER = re.compile(r"(?<![A-Za-z0-9.])\d+(?:,\d{3})*(?:\.\d+)?")
+
+
+def numbers_in(text: str) -> set[Decimal]:
+    """Every number written in `text`, normalised (full-width digits, commas, trailing zeros)."""
+    out = set()
+    for m in _NUMBER.finditer(unicodedata.normalize("NFKC", text)):
+        try:
+            out.add(Decimal(m.group().replace(",", "")).normalize())
+        except InvalidOperation:
+            continue
+    return out
+
+
+def unsupported_numbers(answer: str, question: str, changed: dict, before: dict, after: dict,
+                        lang: str) -> list[str]:
+    """Numbers in the explanation that the model was not given (empty list = the answer passes).
+
+    The output guardrail: the explanation may cite only the numbers in the question, the changes
+    and the results it was shown; anything else (a rounding, a conversion, an invented figure)
+    fails and the page shows the numbers-only summary instead.
+    """
+    allowed = numbers_in(explain_facts(question, changed, before, after, lang))
+    return sorted(format(n, "f") for n in numbers_in(answer) - allowed)
+
+
+def numbers_only_summary(changed: dict, before: dict, after: dict, lang: str) -> str:
+    """The fallback when an explanation fails the number check: the changes and results as bullets."""
+    ja = lang == "ja"
+    lines = [f"- {(BY_ID[k][1] if ja else BY_ID[k][2]) if k in BY_ID else k}: "
+             f"{before.get(k, '—')} → {v}" for k, v in changed.items()]
+    lines += [f"- {k}: {v}" for k, v in after.items()]
+    return "\n".join(lines)
 
 
 def sample_random_dc() -> dict:
