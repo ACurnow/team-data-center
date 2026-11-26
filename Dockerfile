@@ -23,6 +23,7 @@ COPY experiments ./experiments
 COPY web ./web
 COPY data ./data
 COPY docs ./docs
+COPY deploy/build-data.sh ./deploy/build-data.sh
 RUN uv sync --locked --no-dev
 
 # provenance.stamp() reads the commit from git; there is no .git in the image, so pass it in.

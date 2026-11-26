@@ -23,5 +23,6 @@ jobs:
           docker inspect -f '{{.State.Health.Status}}' app | grep -qx healthy
           curl -fsS http://127.0.0.1:8501/ | grep -q '<div id="root">'
           docker exec app python -c "import dcopt, highspy, geopandas, streamlit; print('imports ok')"
+          docker exec app bash -n deploy/build-data.sh
       - if: always()
         run: docker logs app 2>&1 | tail -50
