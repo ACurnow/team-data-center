@@ -110,7 +110,7 @@ def test_readme_citations_resolve(name, heading):
     text = (ROOT / name).read_text(encoding="utf-8")
     body, refs = text.split(heading, 1)
     refs = refs.split("\n## ", 1)[0]
-    numbered = [int(m) for m in re.findall(r"^(\d+)\. ", refs, flags=re.M)]
+    numbered = [int(m) for m in re.findall(r"^(\d+)\. ", refs, flags=re.MULTILINE)]
     assert numbered == list(range(1, len(numbered) + 1)), "references are numbered 1..N without gaps"
     assert len(numbered) == 71
     used = cited_numbers(body)
@@ -118,9 +118,30 @@ def test_readme_citations_resolve(name, heading):
     assert used <= set(numbered), f"citations without a reference: {sorted(used - set(numbered))}"
 
 
+def _readme_parts(name: str, heading: str) -> tuple[str, str, dict[int, list[str]]]:
+    """The body, the intro of the reference list, and each numbered reference's URLs."""
+    body, refs = (ROOT / name).read_text(encoding="utf-8").split(heading, 1)
+    refs = refs.split("\n## ", 1)[0]
+    intro = re.split(r"^1\. ", refs, maxsplit=1, flags=re.MULTILINE)[0]
+    urls = {int(n): re.findall(r"https?://\S+", line)
+            for n, line in re.findall(r"^(\d+)\. (.*)$", refs, flags=re.MULTILINE)}
+    return body, intro, urls
+
+
+def test_both_readmes_cite_the_same_references():
+    en_body, en_intro, en_urls = _readme_parts("README.md", "## References")
+    ja_body, ja_intro, ja_urls = _readme_parts("README.ja.md", "## 参考文献")
+    assert cited_numbers(en_body) == cited_numbers(ja_body), (
+        f"only in README.md: {sorted(cited_numbers(en_body) - cited_numbers(ja_body))}; "
+        f"only in README.ja.md: {sorted(cited_numbers(ja_body) - cited_numbers(en_body))}")
+    assert en_urls == ja_urls, "the two reference lists point to the same sources, number by number"
+    for name, intro in (("README.md", en_intro), ("README.ja.md", ja_intro)):
+        assert cited_numbers(intro) == set(en_urls), f"{name}: the reference-list intro covers every reference"
+
+
 def test_no_attribution_words_in_the_repository():
     skip = {".venv", "data", "out", "results", ".git", "__pycache__", ".pytest_cache", ".ruff_cache"}
-    word = re.compile("cl" + "aude|anth" + "ropic", re.I)                 # split so this file passes its own test
+    word = re.compile("cl" + "aude|anth" + "ropic", re.IGNORECASE)                 # split so this file passes its own test
     hits = []
     for path in ROOT.rglob("*"):
         if not path.is_file() or any(part in skip for part in path.relative_to(ROOT).parts):
