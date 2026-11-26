@@ -20,4 +20,5 @@ step out/heat_story/story.json            python scripts/export_heat_story.py   
 step out/proposals/proposals.json         python scripts/export_proposals.py            # Proposals (a few minutes)
 step out/siting/siting.json               python scripts/export_siting.py --workers "$(nproc)"  # Siting (~15 min on 8 cores)
 step results/weather_years                python experiments/weather_years/run.py       # Weather results panel
+step data/cache/hepco_area                python -m dcopt.matching.records 2024 2025    # Renewable matching (HEPCO records)
 echo "== all data in place"
