@@ -378,10 +378,32 @@ uv run pytest                                          # tests; those that need 
   (carbonforge-flash, OpenAI-compatible via `CF_API_KEY`, override endpoint with `CARBONFORGE_BASE_URL`
   and model with `LLM_MODEL`) maps it onto the page's knobs, the deterministic model re-runs, and the
   LLM explains the result. The model never computes numbers; it chooses inputs and explains outputs.
-- Optional: OrcaRouter, an OpenAI-compatible gateway, in place of the default service. Set `ORCAROUTER_API_KEY`
-  (and `LLM_PROVIDER=orcarouter` when both keys are set). The default model there is `orcarouter/fusion-flash`;
-  `LLM_MODEL` and `ORCAROUTER_BASE_URL` override the model and the endpoint. With no key at all the box stays
-  off and the rest of the page works as before.
+- Output check: every number in the explanation must appear in the question, the changes or the results
+  the LLM was given. If one does not, the panel shows the changes and results as plain bullets with a
+  note instead. The caption under each explanation names the model that answered. Questions are capped
+  at 500 characters.
+- Optional: route the LLM through [OrcaRouter](https://docs.orcarouter.ai/) with a fallback chain, so a
+  CarbonForge outage or 429 does not break the panel. Without `ORCAROUTER_API_KEY` nothing changes.
+  1. In the OrcaRouter console, add CarbonForge under BYOK as a custom OpenAI-compatible endpoint with
+     base URL `https://endpoint.carbonforge.ai/v1` and your CarbonForge key, and import `carbonforge-flash`.
+  2. Optionally add guardrails (console → Guardrails, attached to the key), for example a `max_chars`
+     input rule and a PII mask. They screen inputs; the number check above covers the outputs.
+  3. Set the environment variables below. The first entry of `LLM_MODELS` is the CarbonForge model id as
+     the console shows it after the import.
+     Any model id of OrcaRouter can be in the chain: `LLM_MODELS=orcarouter/fusion-flash`, for example, uses
+     its own router model and needs no CarbonForge import.
+
+  | Variable | Meaning |
+  | --- | --- |
+  | `ORCAROUTER_API_KEY` | OrcaRouter key (`sk-orca-...`); turns OrcaRouter mode on |
+  | `ORCAROUTER_BASE_URL` | default `https://api.orcarouter.ai/v1` |
+  | `LLM_MODELS` | comma-separated fallback chain, at most 5, CarbonForge first |
+  | `CF_API_KEY` | still used when OrcaRouter is unreachable or answers 5xx/429: the app then calls CarbonForge directly |
+  | `CARBONFORGE_BASE_URL`, `LLM_MODEL` | the direct endpoint and model, as before |
+
+  OrcaRouter fails over to the next model only on a 5xx, 429 or network error; a 401/403 or a guardrail
+  block is shown as an error, not retried. Privacy: in this mode the prompts (your question and the
+  model's numbers) pass through OrcaRouter as well as the model provider.
 - The assumption sliders sit in a form: nothing is solved until you press 再計算 / Recalculate. Solved plans
   are kept on disk in `data/cache/warm_ishikari_plans/` (not committed; set `DCOPT_PLAN_CACHE` to keep them
   elsewhere), so a setting solved before loads at once; a change to the model's code (`v1.py`) sets the saved

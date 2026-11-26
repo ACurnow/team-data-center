@@ -221,3 +221,142 @@ def test_new_dc_summary_compares_with_and_without():
     assert out["after"]["connected sites"] > out["before"]["connected sites"]
     assert out["after"]["expected net (M yen/yr)"] > out["before"]["expected net (M yen/yr)"]
     assert "0.5 MW" in out["new_dc"] and "43.0000" in out["new_dc"]
+
+
+# ------------------------------------------------------------------- OrcaRouter mode + guardrail
+ORCA_ENV = ("ORCAROUTER_API_KEY", "ORCAROUTER_BASE_URL", "LLM_MODELS", "LLM_MODEL", "CF_API_KEY",
+            "CARBONFORGE_BASE_URL")
+
+
+@pytest.fixture
+def orca(monkeypatch):
+    for k in ORCA_ENV:
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("ORCAROUTER_API_KEY", "orca-sekrit")
+    monkeypatch.setenv("LLM_MODELS", "byok/carbonforge-flash, openai/gpt-4o-mini")
+    return monkeypatch
+
+
+def reply(content="ok", headers=None):
+    return 200, json.dumps({"choices": [{"message": {"content": content}}]}).encode(), headers or {}
+
+
+def test_no_orcarouter_env_keeps_the_direct_call(monkeypatch):
+    for k in ORCA_ENV:
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("CF_API_KEY", "cf")
+    seen = []
+
+    def send(url, payload, headers):
+        seen.append((url, json.loads(payload)))
+        return reply()
+
+    out = llm.chat_ex([{"role": "user", "content": "hi"}], transport=send)
+    assert out == {"text": "ok", "model": "carbonforge-flash", "via": "direct"}
+    assert seen[0][0] == "https://endpoint.carbonforge.ai/v1/chat/completions"
+    assert "extra_body" not in seen[0][1]
+
+
+def test_orcarouter_sends_the_fallback_chain(orca):
+    seen = {}
+
+    def send(url, payload, headers):
+        seen.update(url=url, body=json.loads(payload), headers=headers)
+        return reply()
+
+    out = llm.chat_ex([{"role": "user", "content": "hi"}], transport=send)
+    assert seen["url"] == "https://api.orcarouter.ai/v1/chat/completions"
+    assert seen["body"]["model"] == "byok/carbonforge-flash"
+    assert seen["body"]["extra_body"] == {"models": ["byok/carbonforge-flash", "openai/gpt-4o-mini"],
+                                          "route": "fallback"}
+    assert seen["headers"]["Authorization"] == "Bearer orca-sekrit"
+    assert out == {"text": "ok", "model": "byok/carbonforge-flash", "via": "orcarouter"}
+
+
+def test_orcarouter_chain_is_capped_at_five(orca):
+    orca.setenv("LLM_MODELS", "a,b,c,d,e,f,g")
+    assert llm.chain() == ["a", "b", "c", "d", "e"]
+
+
+def test_orcarouter_reports_the_fallback_model(orca):
+    out = llm.chat_ex([{"role": "user", "content": "hi"}],
+                      transport=lambda u, p, h: reply("x", {"X-Orca-Fallback-Level": "1",
+                                                           "X-Orca-Fallback-Model": "openai/gpt-4o-mini"}))
+    assert out["model"] == "openai/gpt-4o-mini" and out["via"] == "orcarouter"
+
+
+@pytest.mark.parametrize("failure", [502, 429, "network"])
+def test_orcarouter_down_falls_back_to_carbonforge(orca, failure):
+    orca.setenv("CF_API_KEY", "cf-sekrit")
+    calls = []
+
+    def send(url, payload, headers):
+        calls.append((url, headers["Authorization"], json.loads(payload)))
+        if "orcarouter" in url:
+            if failure == "network":
+                import urllib.error
+                raise urllib.error.URLError("no route")
+            return failure, b"{}", {}
+        return reply("direct answer")
+
+    out = llm.chat_ex([{"role": "user", "content": "hi"}], transport=send)
+    assert out == {"text": "direct answer", "model": "carbonforge-flash", "via": "direct"}
+    assert [c[0].split("/")[2] for c in calls] == ["api.orcarouter.ai", "endpoint.carbonforge.ai"]
+    assert calls[1][1] == "Bearer cf-sekrit" and "extra_body" not in calls[1][2]
+
+
+@pytest.mark.parametrize("status", [401, 403, 400])
+def test_orcarouter_auth_or_guardrail_errors_do_not_fail_over(orca, status):
+    orca.setenv("CF_API_KEY", "cf-sekrit")
+    calls = []
+
+    def send(url, payload, headers):
+        calls.append(url)
+        return status, b'{"error": "nope"}', {}
+
+    with pytest.raises(llm.LLMError) as e:
+        llm.chat_ex([{"role": "user", "content": "hi"}], transport=send)
+    assert len(calls) == 1 and str(status) in str(e.value)
+    assert "sekrit" not in str(e.value)
+
+
+def test_orcarouter_down_without_a_carbonforge_key_raises(orca):
+    with pytest.raises(llm.LLMError) as e:
+        llm.chat_ex([{"role": "user", "content": "hi"}], transport=lambda u, p, h: (503, b"{}", {}))
+    assert "503" in str(e.value) and "orca-sekrit" not in str(e.value)
+
+
+def test_settings_reports_router_mode(orca):
+    s = llm.settings()
+    assert s["has_key"] and s["router"] and s["models"][0] == "byok/carbonforge-flash"
+
+
+def test_question_is_capped():
+    long = "x" * (whatif.MAX_QUESTION_CHARS + 100)
+    assert "x" * (whatif.MAX_QUESTION_CHARS + 1) not in whatif.parse_prompt(CURRENT, long)
+    assert "x" * (whatif.MAX_QUESTION_CHARS + 1) not in whatif.explain_prompt(long, {}, {}, {}, "en")
+
+
+RESULTS = {"connected sites": 13, "pipes (km)": 7.8, "expected net (M yen/yr)": 93.8, "CO2 cut (t/yr)": 1600}
+
+
+def test_number_check_passes_an_answer_using_only_given_numbers():
+    answer = ("With kerosene at 156 yen/L instead of 115, 13 sites connect over 7.8 km of pipe; "
+              "the expected net is 93.80 M yen per year and CO2 falls by 1,600 t.")
+    assert whatif.unsupported_numbers(answer, "why?", {"kerosene_yen_l": 156}, {"kerosene_yen_l": 115},
+                                      RESULTS, "en") == []
+
+
+def test_number_check_flags_invented_or_converted_numbers():
+    answer = "13 sites connect; that is about 94 M yen, roughly 20% better."
+    assert whatif.unsupported_numbers(answer, "why?", {}, {}, RESULTS, "en") == ["20", "94"]
+
+
+def test_number_check_reads_full_width_digits_and_question_numbers():
+    answer = "電気料金を２倍にすると、つながる需要家は１３件です。"
+    assert whatif.unsupported_numbers(answer, "電気料金を2倍にして", {}, {}, RESULTS, "ja") == []
+
+
+def test_numbers_only_summary_lists_changes_and_results():
+    s = whatif.numbers_only_summary({"kerosene_yen_l": 156}, {"kerosene_yen_l": 115}, RESULTS, "en")
+    assert "kerosene price (yen/L): 115 → 156" in s and "- pipes (km): 7.8" in s
