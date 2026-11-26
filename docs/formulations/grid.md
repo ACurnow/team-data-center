@@ -129,7 +129,7 @@ What the table says:
 | Problem | SDP bound (MW) | AC point (MW) | Global solver |
 |---|---|---|---|
 | built-in 5-bus ring, 3 load levels × 5 buses | — | — | optimal in all 15; best value equal to the AC point (within 0.0001 MW) |
-| … of which bus 3 at load levels 0.6 and 0.8 | 243.29, 223.35 | 233.80, 219.12 | proves 233.80 and 219.12: the SDP bound is loose there |
+| … of which bus 3 at load levels 0.6 and 0.8 | 243.29, 223.34 | 233.80, 219.12 | proves 233.80 and 219.12: the SDP bound is loose there |
 | case30_ieee bus 29 | 10.62 | 10.50 | optimal, 10.50: equal to the AC point |
 | case30_ieee bus 30 | 7.54 | 7.33 | optimal, 7.33: equal to the AC point |
 | case30_ieee bus 26 | 7.46 | 7.29 | optimal, 7.29: equal to the AC point |
@@ -139,6 +139,8 @@ What the table says:
 | case39_epri bus 21 | 564.78 | 470.62 | best 470.62, bound 623.74 at 240 s |
 
 Where the global solver finished, its optimum equals the AC point to five digits, so the open bracket there is the relaxation's slack. On the 39-bus and 57-bus systems it did not finish in 240 s, and its best point equals the AC point to two decimals. Its own bound was looser than the SDP bound at all four buses in these runs. In an earlier run at Gurobi's default tolerance it had reached 511.49 at the 39-bus bus, which is tighter than the SDP bound and still valid, because a looser tolerance only enlarges the feasible set. So the wide brackets there remain open.
+
+`experiments/grid_global/run.py` regenerates this table (see Reproduce below); it needs Gurobi and a licence that covers the PGLib cases. A full run on 2026-11-26 gave the same SDP bounds, AC points and best values. On the four problems that stop at the time limit, the solver's bound at 240 s differs a little from run to run (359.47, 287.45, 723.61 and 622.02 in that run), which does not change the reading.
 
 Gurobi runs with a feasibility tolerance of $10^{-9}$ in this check. At its default of $10^{-6}$ its solution may violate the limits just enough to host slightly more: the reported optimum then lay up to 0.07 % above the AC point, and on the built-in radial feeder, where the bracket is closed, above the certified upper bound. That is tolerance, not a better operating point; with $10^{-9}$ the two agree to seven digits there, and a test checks it.
 
@@ -202,7 +204,10 @@ We also tried the lifted nonlinear cuts of Coffrin et al. (2017) on 10 buses of 
 uv run python experiments/grid_hosting/run.py --workers 8      # all six cases, then the two studies; about 12 minutes on the machine above
 uv run python experiments/grid_hosting/run.py --cases ring5,feeder8,case14_ieee --study-case ""   # a few seconds
 uv run pytest tests/test_grid_cases.py tests/test_grid_hosting.py
+uv run --extra gurobi python experiments/grid_global/run.py --download   # the global-solver table; 240 s per long case
 ```
+
+The global-solver script writes `results/grid_global/table.csv` and `provenance.json` (commit, Gurobi version, feasibility tolerance, time limit) and prints the table above. `--time-limit` and `--feas-tol` change the two settings the numbers depend on. Without gurobipy or a licence it prints a note and exits. The size-limited licence that comes with the gurobipy package solves the 5-bus ring and the feeder, but not the 30-, 39- and 57-bus cases.
 
 The outage study in the first command runs at load level 0.7; `--n1-level 1.0` and `--n1-level 0.8` give the other two.
 

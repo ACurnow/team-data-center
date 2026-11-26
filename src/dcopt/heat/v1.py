@@ -13,8 +13,13 @@ Model    max  sum_t sum_j v * s_jt  -  sum_e c * len_e * y_e
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
-from dataclasses import dataclass, field
+import os
+import pickle
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -22,6 +27,7 @@ import scipy.sparse as sp
 from scipy.optimize import Bounds, LinearConstraint, milp
 from sklearn.cluster import DBSCAN
 
+from dcopt.common import geo
 from dcopt.common.geo import paths, road_distance_matrix, road_path, snap
 
 AREA = "ishikari"
@@ -67,7 +73,7 @@ KINDS = {
 }
 GREENHOUSE_MWH_PER_M2 = 0.40      # assumption: heated greenhouse in Hokkaido, per m2 per year
 SNOW_MWH_PER_M2 = 0.12            # assumption: ~0.25 kWh per m2 per cm of snowfall x 479 cm
-KEROSENE_KWH_PER_L = 9.7          # lower heating value of kerosene
+KEROSENE_KWH_PER_L = 9.7          # assumption: between the standard net (9.55) and gross (10.17) values, docs/input-evidence.md
 # CO2 factors, each from an official list (URLs in dcopt.heat.network.URL and docs/data-sources.md).
 KEROSENE_KG_CO2_PER_L = 2.50      # Ministry of the Environment list: 36.5 GJ/kL x 0.0187 tC/GJ x 44/12
 GRID_KG_CO2_PER_KWH = 0.526       # Hokkaido Electric Power, standard plans (menu F), FY2024 results
@@ -243,6 +249,7 @@ class Design:
     seconds: float = 0.0
     paths: dict = field(default_factory=dict)
     edge_flow_month: dict = field(default_factory=dict)   # (a, b) -> 12 monthly MWh
+    gap: float = math.nan                   # relative MIP gap reported by the solver (nan if none)
 
     @property
     def delivered(self) -> float:
@@ -398,9 +405,72 @@ def design(dc: Site, sites: list[Site], A: Assumptions, k: int = 4, kinds: set[s
             monthly[a, b] = [float(sum(served[u, t] * share[u] for u in range(nU))) for t in range(T)]
             flow[a, b] = float(sum(monthly[a, b]))
     d = Design(users, built, flow, served, used, W, A, res.message, time.perf_counter() - t0)
+    gap = getattr(res, "mip_gap", None)
+    d.gap = float(gap) if gap is not None else math.nan
     d.edge_flow_month = monthly
     d.paths = {(a, b): road_path(nodes[a].node, nodes[b].node, AREA) for a, b, _ in built}
     return d
+
+
+# ---- disk cache of solved plans (data/cache/ is git-ignored) ----
+PLAN_CACHE_ENV = "DCOPT_PLAN_CACHE"      # set to a folder to keep the cache elsewhere (the tests do)
+
+
+def plan_cache_dir() -> Path:
+    """Where solved plans are kept: $DCOPT_PLAN_CACHE, or data/cache/warm_ishikari_plans."""
+    return Path(os.environ.get(PLAN_CACHE_ENV) or geo.CACHE / "warm_ishikari_plans")
+
+
+def code_version() -> str:
+    """A hash of this module's source: any change to the model invalidates every cached plan."""
+    return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+
+
+def plan_key(dc: Site, sites: list[Site], A: Assumptions, k: int, kinds: set[str] | None,
+             time_limit: float) -> str:
+    """A stable key for one solve: the assumptions, the kinds, k, the time limit, the code version
+    and the candidate sites (so a fresh map fetch does not serve plans for the old sites)."""
+    payload = {
+        "A": asdict(A),
+        "kinds": sorted(kinds) if kinds is not None else None,
+        "k": int(k),
+        "time_limit": float(time_limit),
+        "code": code_version(),
+        "sites": [[s.key, s.kind, s.node, round(s.annual_mwh, 6), round(s.lon, 7), round(s.lat, 7)]
+                  for s in [dc] + list(sites)],
+    }
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=True, default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()[:32]
+
+
+def cached_design(dc: Site, sites: list[Site], A: Assumptions, k: int = 4, kinds: set[str] | None = None,
+                  time_limit: float = 30.0, cache_dir: Path | None = None) -> tuple[Design, bool]:
+    """design() with the optimal network kept on disk. Returns (design, loaded_from_cache).
+
+    The cache holds pickles this function wrote itself in a git-ignored folder; an unreadable file
+    is treated as a miss and overwritten.
+    """
+    folder = Path(cache_dir) if cache_dir is not None else plan_cache_dir()
+    f = folder / f"{plan_key(dc, sites, A, k, kinds, time_limit)}.pkl"
+    if f.exists():
+        try:
+            with f.open("rb") as fh:
+                d = pickle.load(fh)
+        except (OSError, EOFError, pickle.UnpicklingError, AttributeError, ImportError, IndexError,
+                TypeError, ValueError):
+            d = None                      # a partial or stale file: solve again
+        if isinstance(d, Design):
+            return d, True
+    d = design(dc, sites, A, k=k, kinds=kinds, time_limit=time_limit)
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_suffix(f".{os.getpid()}.tmp")
+        with tmp.open("wb") as fh:
+            pickle.dump(d, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp, f)                # atomic: a reader never sees half a file
+    except OSError:                       # a read-only checkout still works, just without the cache
+        pass
+    return d, False
 
 
 def pairwise(dc: Site, sites: list[Site], A: Assumptions, top: int = 5, kinds: set[str] | None = None) -> Design:
@@ -437,7 +507,7 @@ def standalone_and_shared(d: Design, dc: Site) -> list[dict]:
         below[parent[n][0]] = below.get(parent[n][0], 0.0) + below[n]
     shared_cost = {i + 1: 0.0 for i in range(len(d.sites))}
     for n in order[1:]:                                  # the pipe into n serves everything below n
-        p, m = parent[n]
+        _, m = parent[n]
         if below[n] <= 0:
             continue
         stack = [n]

@@ -1,6 +1,6 @@
 # Team Data Center
 
-**Optimization for data centers in Ishikari, Hokkaido.** Where should their waste heat go? How much new load can the power grid host? Where should the next data center be built?
+**Optimization for data centers in Ishikari, Hokkaido.** Where should their waste heat go? How much new load can the power grid host? Where should the next data center be built? How much of their electricity is renewable, slot by slot?
 
 [日本語版 / Japanese](README.ja.md)
 
@@ -12,7 +12,7 @@
 
 This project started at [Hack × Hokkaido Build Week 2026](https://www.hackhokkaido.com/), an AI build week in Sapporo (23–27 November 2026) [1]. There, international engineers and people from Hokkaido build prototypes for Hokkaido's problems from open data. Entries are public repositories under the MIT license.
 
-We took the idea starter **"Warm Ishikari"**: a matchmaker and calculator for data-center waste heat. It maps heat sources and possible users (greenhouses, aquaculture, snow melting, public baths) and estimates the heat available, the distance and the saving. It then drafts a one-page proposal for each promising pair, with every number either sourced or marked as an assumption. We treat the task as an optimization problem and extend it into three research themes. The team plans to continue the research after the event.
+We took the idea starter **"Warm Ishikari"**: a matchmaker and calculator for data-center waste heat. It maps heat sources and possible users (greenhouses, aquaculture, snow melting, public baths) and estimates the heat available, the distance and the saving. It then drafts a one-page proposal for each promising pair, with every number either sourced or marked as an assumption. We treat the task as an optimization problem and extend it into four research themes. The team plans to continue the research after the event.
 
 ## Why it matters
 
@@ -20,17 +20,18 @@ We took the idea starter **"Warm Ishikari"**: a matchmaker and calculator for da
 - **Their heat is wasted while fuel is burned next door.** The waste heat of air-cooled servers (about 25–40 °C [16, 17]) is mostly released. Meanwhile, nearby greenhouses, pools, baths and snow melting burn kerosene, which cost 156.8 yen/L in Hokkaido in the government survey of 16 November 2026 [11].
 - **Rules elsewhere already require reuse.** In the EU, data centers above 1 MW must use their waste heat unless a cost-benefit analysis shows it is not feasible [13]. We found no such rule in Japan [14].
 
-## Three research themes
+## Four research themes
 
 | | Question | Method | Status |
 |---|---|---|---|
 | 1. Waste-heat networks | Which users connect to which data center, along which streets, with which pipes? | Network-design MILP with monthly heat balances; stochastic and robust versions [23–26, 31–36] | Models v1 and v2, app and animated map |
 | 2. Grid hosting capacity | How much data-center and heat-pump load can each grid location take? | AC optimal power flow with convex (SDP/SOCP) relaxations: certified upper bounds plus feasible points [37–47, 59–64] | Method and app page; checked on benchmark systems |
 | 3. Siting | Where should the next data center go? | Facility location using the results of themes 1 and 2 [48–52] | First screen: heat value by site, distance to the grid, app page |
+| 4. Renewable matching | How much of a data center's electricity is renewable in the 30 minutes it is used, and what changes on the grid? | Counting on the area's 30-minute supply and demand records; a linear program for the cheapest contract and battery [66–71] | First version: two fiscal years of records, app page |
 
 ## Results so far (theme 1)
 
-> **All numbers are model estimates** from public data and stated assumptions, not measured values or quotations. Several sites, demands and data-center positions are assumptions (see [Caveats](#caveats) and [docs/data-sources.md](docs/data-sources.md)).
+> **All numbers are model estimates** from public data and stated assumptions, not measured values or quotations. Several sites, demands and data-center positions are assumptions, and about half of the heat in the headline plan goes to two assumed sites (see [What the result rests on](#what-the-result-rests-on), [Caveats](#caveats) and [docs/data-sources.md](docs/data-sources.md)).
 
 All figures are annual net benefits in million yen, averaged over four scenarios: IT load low or high, crossed with kerosene at 115 or 156.8 yen/L. The net benefit is the value of the kerosene replaced, minus heat-pump electricity, minus the annualized cost of pipes and heat pumps. Pipe costs follow [15], heat-pump costs [16], kerosene prices [11], and monthly demand follows JMA climate normals [12]. There are 50 candidate sites: 40 from OpenStreetMap facility tags, plus 10 named public buildings, hotels and a factory. Demand per building type is an assumption.
 
@@ -110,6 +111,29 @@ Notes on the table:
 - These are the best plans found, with Gurobi (gaps of 4–11 % to its bound after 300 s per policy). HiGHS alone finds plans within 3.4 % of them and the same picture, except that it keeps the 13-site plan at 4,300 yen/t.
 - Every policy was given the same candidate links, and every plan found was evaluated under every policy, so the plans differ because of the policy and not because of the search ([method](docs/formulations/heat-model.md#12-co2-and-policy-scenarios), [both tables](docs/formulations/heat.md)).
 
+### What the result rests on
+
+The published plan (93.8 M yen a year, 13 sites, 7.8 km) was computed again with each input moved, one at a time, to the end of the range found in published sources. The sources and the reading of each input are in [docs/input-evidence.md](docs/input-evidence.md); the runs are `experiments/input_sensitivity` and `experiments/heat_loss_check`.
+
+| Input | In the model | Changed to | Net benefit (M yen a year) |
+|---|---|---|---|
+| Assumed sites: fish farm, road heating, new greenhouse sites | included | all left out | 11.4 |
+| Heat demand of the fish farm (an assumed site) | 5,000 MWh a year | 1,000 MWh a year, the scale documented in Hokkaido | 27.9 to 32.4 |
+| All yearly heat demands | as assumed | 0.7 times / 1.3 times | 28.4 to 51.5 / 144.8 |
+| Pipe cost | 2019 quotes | fiscal 2025 prices (1.22 times) | 72.7 to 76.6 |
+| Discount rate | 3 % | 4 % / 1 % | 78.3 to 79.0 / about 122 |
+| Heat from a litre of kerosene | 8.2 kWh | 8.7 kWh / 7.6 kWh | 80.7 / 115.0 |
+| Electricity price for the heat pumps | 25 yen/kWh | 30 to 34 yen/kWh | 87.4 to 82.4 |
+| Power drawn by the data centers | the stated IT load, all year | half of it | 80.4 |
+| Network heat loss (ambient loop) | 2 % | 3.7 to 4.5 % | 92.0 |
+
+- **Half of the heat goes to two assumed sites.** The fish farm takes 33 % of the heat the plan delivers and one road-heating area 16 %. Neither exists today. Without the assumed sites, the best plan found on the facilities that exist is worth 11.4 M yen a year (13 sites, 6.0 km).
+- **Low-temperature users carry the value.** The fish farm and the road heating need 22 to 25 °C and take the heat of the 30 °C loop as it is. Existing buildings need 45 to 60 °C, so each of them needs a heat pump and its electricity.
+- **Costs are in 2019 prices.** Construction costs rose about 22 % between fiscal 2019 and fiscal 2025; with pipes at today's prices the plan is worth about a fifth less, and a plan made again shrinks to 10 sites and 4.3 km.
+- **The heat loss matters little here,** because waste heat is in surplus. Computed from published loss coefficients and Sapporo's ground temperature, the plan's own pipes lose 2.7 to 4.5 % of the heat delivered, against the flat 2 % in the model.
+
+A range "a to b" spans the published pipes kept and the plan made again under the changed input.
+
 ### Caveats
 
 - **Optimality.** The plans come from an LP-guided kernel search with HiGHS.
@@ -175,12 +199,59 @@ For each of 56 candidate sites in Ishikari (a 1.5 km grid, each point moved to t
 
 - **The heat has value at 19 of the 56 sites.** At the best one it is 45.2 M yen a year, almost half of what the whole regional plan earns today (93.8).
 - **What counts is being nearer to the heat users.** The best sites are 1 to 2 km from the existing data centers, on the town side. At the port itself heat is already in surplus: the regional plan uses about 15 % of what the existing data centers could supply, so one more data center there adds nothing.
-- **The grid connection decides how much is left.** With a connection line at 100 M yen/km (an assumption), the best site keeps 37.9 of its 45.2 if it connects at the 66 kV substation 1.4 km away, and 18.5 if it has to connect at 187 kV, 5.2 km away.
-- **A second new data center is worth about a third of the first:** 16.6 of heat value on top, and 3.3 after its own connection cost.
+- **The grid connection costs as much as the heat is worth.** Published standard unit costs for a two-circuit tower line are 140 to 670 M yen/km in the 66/77 kV class [65]. At the middle of that range, the best site keeps 15.3 of its 45.2 if it connects at the 66 kV substation 1.4 km away, and only one other site keeps a positive net. If the connection has to be made at 187 kV, 5.2 km away, the heat value does not cover the line at any site.
+- **A second new data center adds about a third of the heat value of the first** (16.6 on top), which is less than its own connection costs.
 
-The app's *Siting* page shows the map and solves the location model for a chosen number of data centers, connection level and cost. The values are lower bounds from a heuristic search, computed one site at a time. They are from the run with Gurobi; HiGHS alone gives the same values at the four best sites and lower ones at 17 others. Formulation, method and limits: [docs/formulations/siting.md](docs/formulations/siting.md).
+The app's *Siting* page shows the map and solves the location model for a chosen number of data centers, connection level and cost. The values are lower bounds from a heuristic search, computed one site at a time. They are from the run with Gurobi; HiGHS alone gives the same values at the four best sites (within 1.0) and lower ones at 17 others. Formulation, method and limits: [docs/formulations/siting.md](docs/formulations/siting.md).
+
+## Results so far (theme 4)
+
+> **Estimates from published records.** Two fiscal years of the area's 30-minute supply and demand records, a constant load, and a simple replay of the records. It is not an operating model of the power system.
+
+![One week of a solar and wind contract against a constant load, slot by slot, and the same year counted by the year, by the slot and on the grid](docs/img/renewable-matching.png)
+
+*A data center drawing a constant 100 MW buys solar and wind energy equal to its yearly use, with the shape of the Hokkaido area's fleets. Left: the week of fiscal 2025 with the lowest match. Right: the share of its electricity that is renewable, counted in three ways.*
+
+A data center can say that it runs on renewable electricity because, over a year, it bought as much renewable energy as it used. Hokkaido Electric Power Network publishes the area's supply and demand for every 30-minute slot [66]. The curtailment summed from these records equals the figures the government publishes for the area [67]. On fiscal years 2024 and 2025 (17,520 slots each), the same year is counted in three ways for a constant load of 100 MW (876 GWh a year):
+
+| Way of counting | FY2024 | FY2025 |
+|---|---|---|
+| By the year: renewable energy contracted / energy used | 100 % | 100 % |
+| By the 30-minute slot: the part generated in the slot it was used (the area's solar and wind mix) | 68.4 % | 68.9 % |
+| — solar only / wind only / best mix (about 80 % wind) | 40.6 / 72.4 / 75.6 % | 40.6 / 72.8 / 76.6 % |
+| On the grid, buying from existing plants: extra thermal generation / energy used | 99.9 % | 98.9 % |
+| On the grid, building new plants of the same volume: change in thermal generation / energy used | +0.2 to +0.8 % | +1.6 to +2.4 % |
+
+- **"100 % by the year" is about two thirds by the slot.** The rest is supplied by other plants, and the same amount of contracted energy goes to other users at other times.
+- **Every lever has diminishing returns.** Twice the volume gives 84 to 85 %. A battery of four hours gives 80 to 81 % and a full day 88 to 89 %: days of weak wind in a row are beyond a battery. Moving a fifth of each day's work, with a quarter more equipment, gives 75 to 76 %, and the equipment is then used 80 % of the time.
+- **The last percent costs most.** With published generation costs and battery prices [70, 71], the cheapest contract and battery for a 90 % match cost about 20 yen per kWh used (1.1 times the yearly volume and a battery of about nine hours of the load), and for a 100 % match 36 to 38 yen. Without a battery, 90 % takes more than twice the yearly volume.
+- **Buying from existing plants changes nothing on the grid.** With no new plant, thermal plants cover 99 % or more of what the data center uses. The curtailed solar and wind output that a 100 MW load could have used was 0.1 % of its use in FY2024 and 1.1 % in FY2025.
+- **Today, new plants matter more than the slot match.** If the contract causes solar and wind of the same yearly volume to be built, thermal generation rises by only 0.2 to 2.4 % of what the data center uses, because thermal plants turn down for everyone when the contract has a surplus. With two to three times today's solar and wind, 8 to 28 % of their output would be curtailed in this replay, and the slot match starts to decide what a contract achieves.
+- **Growth on both sides.** Twice today's solar and wind makes room for about 660 to 680 MW of round-the-clock load before thermal generation is back at today's level; one and a half times, for about 340 to 350 MW.
+
+Studies that model how other investment responds find that matching by the year changes a system's emissions little, while matching by the hour lowers them at a higher cost [68, 69]. The replay here keeps everything else as recorded and cannot show that response.
+
+The app's *Renewable matching* page lets you set the load, the contract, a battery and the share of work that can move within the day, and solves a linear program for the cheapest contract and battery that reach a target match (prices from [70, 71]). Formulation, inputs and limits: [docs/formulations/matching.md](docs/formulations/matching.md).
 
 ## How it works
+
+Each theme has its own data, model and output. The first diagram shows how the four connect; the others show one theme each.
+
+```mermaid
+flowchart LR
+  T1["1. Waste-heat network<br/>who gets heat, through which pipes"]
+  T2["2. Grid hosting capacity<br/>how much load a bus can take"]
+  T3["3. Siting<br/>where the next data center goes"]
+  T4["4. Renewable matching<br/>how renewable the electricity is"]
+  T1 -->|"value of the heat at a site"| T3
+  T2 -.->|"room at a connection point"| T3
+  T4 -.->|"renewable output left over"| T3
+  T1 -.->|"fuel replaced by waste heat"| T4
+```
+
+Solid arrow: in the code today. The heat value that theme 1 gives for a site is what theme 3 ranks sites by. Dotted arrows: planned links. The hosting capacity of theme 2 becomes the room at a connection point once there is a network model of the area; theme 4 can tell where and when renewable output is left over, and can set the fuel that waste heat replaces next to the electricity a data center uses.
+
+### Theme 1: waste-heat network
 
 ```mermaid
 flowchart LR
@@ -199,6 +270,62 @@ flowchart LR
 - *Objective.* Maximize the value of the heat minus annualized costs.
 - *Uncertainty.* The stochastic version shares one build across scenarios. The robust versions maximize the worst case, minimize the largest regret, or protect against a budgeted uncertainty set on IT loads.
 
+### Theme 2: grid hosting capacity
+
+```mermaid
+flowchart LR
+  NET["Network data<br/>public test systems and<br/>small built-in examples"] --> ACP["AC problem<br/>the largest load a bus can take"]
+  ACP --> LOW["Checked AC operating point<br/>lower end"]
+  ACP --> UP["Convex relaxations, SDP and SOCP<br/>upper end (Clarabel)"]
+  ACP --> DC["DC screening<br/>linear, not a bound"]
+  LOW --> BR["Bracket for every bus<br/>and the limit that binds"]
+  UP --> BR
+  DC --> BR
+  BR --> APP2["App page and tables"]
+  BR -.-> GLOB["Cross-check with a global solver<br/>(Gurobi, optional)"]
+```
+
+- *Problem.* Maximize the load added at one bus subject to the AC power-flow equations and the limits on voltages, lines and generators [37–44].
+- *Bracket.* An interior-point method finds an operating point and a separate routine checks it: that much can be hosted. Semidefinite and second-order cone relaxations give a value no operating point can exceed. When the two meet, the answer is exact.
+- *Scope.* Public test systems, not the Hokkaido grid: there is no network model of this area yet.
+
+### Theme 3: siting
+
+```mermaid
+flowchart LR
+  GRID["Candidate sites<br/>1.5 km grid, moved to roads"] --> HV["Heat value of each site<br/>regional plan with a new data center there<br/>minus the plan without it"]
+  PLAN["Regional heat plan of theme 1<br/>(HiGHS / Gurobi)"] --> HV
+  OSMP["OpenStreetMap<br/>lines and substations"] --> DIST["Distance to a substation<br/>66 kV or 187 kV"]
+  UNIT["Published unit costs<br/>of connection lines"] --> CONN["Yearly connection cost"]
+  DIST --> CONN
+  HV --> LOC["Location model (MILP, HiGHS)<br/>number of sites, spacing, headroom"]
+  CONN --> LOC
+  LOC --> APP3["App page and map"]
+```
+
+- *Heat value.* For each candidate site the heat-network model of theme 1 is solved again with a new data center there; the gain over today's plan is the value of its waste heat.
+- *Grid connection.* The distance to the nearest substation on the public map, times a published unit cost, as a yearly amount.
+- *Choice.* A small location model picks the sites with the best heat value minus connection cost, keeps them apart, and can cap the load per connection point [48–52].
+
+### Theme 4: renewable matching
+
+```mermaid
+flowchart LR
+  REC["Area supply and demand records<br/>30-minute values from the operator"] --> CHK["Read and check<br/>no gaps, supply equals demand"]
+  LOAD["Data-center load<br/>constant, an assumption"] --> CNT["Three counts<br/>by the year, by the slot, on the grid"]
+  CHK --> CNT
+  CHK --> RPL["Replay of the records<br/>added load, added solar and wind"]
+  CHK --> LP["Linear program (HiGHS / Gurobi)<br/>cheapest contract and battery<br/>for a target match"]
+  PRC["Published generation costs<br/>and battery prices"] --> LP
+  CNT --> APP4["App page, figure<br/>and document"]
+  RPL --> APP4
+  LP --> APP4
+```
+
+- *Counting.* The contract delivers the area's solar and wind shape scaled to the volume bought. By the year: energy bought over energy used. By the slot: the part generated in the same 30 minutes.
+- *On the grid.* A replay of the published slots: an added load first uses output that was being curtailed and thermal plants cover the rest; added solar and wind first turn thermal plants down to a floor and are curtailed beyond it.
+- *Cheapest portfolio.* A linear program over the 17,520 slots of a year chooses the solar and wind volumes and the battery for a target share of matched energy [68–71].
+
 ## Quick start
 
 ```bash
@@ -207,6 +334,7 @@ uv run python scripts/fetch_data.py --area ishikari    # map data from OpenStree
 uv run python scripts/export_heat_story.py             # base map and data for the animated map page
 uv run python scripts/export_proposals.py              # ranked partners and proposals per data center (a few minutes)
 uv run python scripts/export_siting.py                 # theme 3: heat value of a new data center at every candidate site (15 minutes)
+uv run python -m dcopt.matching.records 2024 2025      # theme 4: the area's 30-minute records into data/cache (not committed)
 uv run streamlit run app/streamlit_app.py              # the demo app
 uv run pytest                                          # tests; those that need map data skip without it
 ```
@@ -216,6 +344,7 @@ uv run pytest                                          # tests; those that need 
 - Robust sweep: `uv run python experiments/heat_ccg/run.py ambient`
 - Carbon price and subsidy scenarios: `uv run python experiments/heat_policy/run.py`
 - Theme 2, every bus of six benchmark systems (downloads PGLib-OPF): `uv run python experiments/grid_hosting/run.py --workers 8`
+- Theme 4, the numbers and the figure: `uv run python scripts/export_matching.py --portfolio` and `uv run python scripts/render_matching_figure.py`
 
 **Live simulation (the app's Warm Ishikari page)**
 - Type a what-if in either language ("電気料金を2倍にして" / "double the electricity price"); the LLM
@@ -237,6 +366,7 @@ Add `--lang ja` for the Japanese versions; they need a Japanese font such as Not
 src/dcopt/heat      theme 1: model v1 (v1.py), v2 (network.py), proposals (proposal.py)
 src/dcopt/grid      theme 2: networks (cases.py), relaxations (relax.py), AC points (ac.py), brackets (hosting.py)
 src/dcopt/siting    theme 3: candidate sites (candidates.py), heat value (heat_value.py), grid distances (gridmap.py), location model (model.py)
+src/dcopt/matching  theme 4: area records (records.py), counting (score.py), replay of the records (system.py), cheapest portfolio (portfolio.py)
 src/dcopt/common    shared code: road network, styles
 app/                Streamlit app
 web/heat_story/     animated map page
@@ -249,12 +379,13 @@ tests/              unit tests on synthetic instances and app tests
 
 ## Data and sources
 
-- **Every number has a source or is marked as an assumption.** The list, with URLs, is in [docs/data-sources.md](docs/data-sources.md). It covers the data centers in Ishikari, prices, pipe and heat-pump costs, climate normals and precedents.
+- **Every number has a source or is marked as an assumption.** For the assumptions, [docs/input-evidence.md](docs/input-evidence.md) gives the range found in published sources and how far the results move with it. The list, with URLs, is in [docs/data-sources.md](docs/data-sources.md). It covers the data centers in Ishikari, prices, pipe and heat-pump costs, climate normals and precedents.
 - **Every dataset is registered, pinned and tested.** [docs/data-accountability.md](docs/data-accountability.md) shows where each dataset is stored, under which terms, how it is processed, which tests keep the calculations accurate, and how a result is traced to its code and data.
 - **Map data.**
   - Scripts download OpenStreetMap data (© OpenStreetMap contributors, ODbL [18]) into `data/raw/` and `data/cache/`. This data is not committed.
   - The animation is a produced work from OpenStreetMap data and is credited as such.
 - **Benchmark power systems.** Theme 2 uses PGLib-OPF [45] (CC BY 4.0). The code downloads the case files into `data/cache/pglib/`; they are not committed. The small built-in systems are our own illustrative data.
+- **Area supply and demand.** Theme 4 uses the 30-minute records published by Hokkaido Electric Power Network [66]. The code downloads the monthly files into `data/cache/hepco_area/`; they are not committed, and the values are used unchanged.
 - **Weather.** Daily JMA observations for Sapporo, 1976–2025 [12], are committed in `data/jma/` under JMA's terms of use (Public Data Terms of Use 1.0: source credited, processing stated), not under the MIT license; see `data/jma/README.md`.
 - **Hokkaido precedents.** Snow melting with data-center heat [19], the snow-cooled data center in Bibai and its eel farm [20, 21], and a bath heated by data-center waste heat [22].
 - **Assumed sites.** The fish farm, the new greenhouses and the road-heating areas are assumptions, drawn as hollow markers.
@@ -262,8 +393,17 @@ tests/              unit tests on synthetic instances and app tests
 
 ## Solvers
 
-- **Open source by default.** HiGHS solves the MILPs and LPs. Clarabel [64] solves the conic relaxations of theme 2, and the AC points come from our own interior-point code.
-- **Optional commercial solver.** Gurobi can be used when installed (`DCOPT_SOLVER=gurobi`), but no part of the code requires it. On this model it certifies plans that HiGHS cannot within the same time (see Caveats).
+Everything runs with open-source solvers. Gurobi is optional: no part of the code needs it. Where it is installed (`DCOPT_SOLVER=gurobi`), the same models solve faster, and the largest one is solved with a proof of optimality.
+
+Checking results on large, realistic models may need a solver of that strength. With the open-source solvers alone, the full network model of theme 1 still has a gap of 18 to 26 % after 300 s, so its plans come without a proof; and the global cross-check of theme 2 has no open-source counterpart in this code.
+
+| Theme | Without Gurobi (the default) | With Gurobi (optional) |
+|---|---|---|
+| 1. Waste-heat network | HiGHS with an LP-guided kernel search. Its plans are within 0.2 to 0.8 % of the optimum; on the full model HiGHS alone still has gaps of 18 to 26 % after 300 s | Proves the optimum of the full model in 71 s (ambient loop) and 255 s (central network) |
+| 2. Grid hosting capacity | Clarabel [64] for the SDP and SOCP relaxations, and our own interior-point code for the AC points | A global solve of the non-convex AC problem as a cross-check of the bracket (`experiments/grid_global`) |
+| 3. Siting | HiGHS, for the heat value of every site and for the location model | The same values at the four best sites, and better plans at 17 of the 56 sites |
+| 4. Renewable matching | HiGHS: the linear program of one year in 26 to 44 s | The same result in 2 to 4 s |
+
 - **Checked with both solvers.** The test suite passes with `DCOPT_SOLVER=gurobi` as it does with HiGHS, and the exports give the same regional plan with either (93.8 M yen a year, 13 sites, the same pipes). Where two neighbouring data centers can serve a site at the same cost, the two solvers may break the tie differently, so a data center's list of partners can differ in a few entries.
 
 ## Next research questions
@@ -276,10 +416,11 @@ tests/              unit tests on synthetic instances and app tests
 - A network model for Ishikari: HEPCO Network's published data for 187 kV and above, the IEEJ standard models, or OpenStreetMap.
 - Tighter relaxations where voltage limits bind [42, 63], and flexible data-center loads as curtailable connections [50, 51].
 - Siting with the hosting capacity as a constraint, with candidate data centers chosen inside the heat-network model, and with land, hazard and fibre layers [29, 30, 48–52].
+- Renewable matching with measured data-center load profiles and plant-level renewable profiles; a dispatch model of the area in place of the replay; hourly emission rates from the fuel split in the records [66].
 
 ## References
 
-Facts and parameters [1–22], then related literature: waste-heat networks and data-center heat reuse [23–30], robust optimization [31–36], grid hosting capacity [37–47], siting and flexible loads [48–52]. CO₂ factors and policy sources [53–58]. Methods and the solver of theme 2 [59–64].
+Facts and parameters [1–22], then related literature: waste-heat networks and data-center heat reuse [23–30], robust optimization [31–36], grid hosting capacity [37–47], siting and flexible loads [48–52]. CO₂ factors and policy sources [53–58]. Methods and the solver of theme 2 [59–64]. Grid connection costs [66]. Renewable matching: the records and the published curtailment [66, 67], studies of clean-electricity procurement [68, 69], costs [70, 71].
 
 1. Hack × Hokkaido Build Week 2026, AI build week in Sapporo, 23–27 November 2026. https://www.hackhokkaido.com/ (accessed 2026-11-24).
 2. Broadband Tower (2025-11-28). Press release on Ishikari Renewable Energy Data Center No. 1 (in Japanese). https://www.bbtower.co.jp/ir/pr/docs/20251128_ishikari_release.pdf
@@ -345,10 +486,17 @@ Facts and parameters [1–22], then related literature: waste-heat networks and 
 62. Wang, H., Murillo-Sánchez, C.E., Zimmerman, R.D., Thomas, R.J. (2007). On Computational Issues of Market-Based Optimal Power Flow. *IEEE Transactions on Power Systems*, 22(3), 1185–1193. https://doi.org/10.1109/TPWRS.2007.901301
 63. Coffrin, C., Hijazi, H.L., Van Hentenryck, P. (2017). Strengthening the SDP Relaxation of AC Power Flows With Convex Envelopes, Bound Tightening, and Valid Inequalities. *IEEE Transactions on Power Systems*, 32(5), 3549–3558. https://doi.org/10.1109/TPWRS.2016.2634586
 64. Goulart, P.J., Chen, Y. (2026). Clarabel: An interior-point solver for conic programs with quadratic objectives. *Mathematical Programming Computation*, 18(4), 1279–1361. https://doi.org/10.1007/s12532-026-00320-7
+65. 電力広域的運営推進機関 (2026). 送変電設備の標準的な単価の見直しについて, 第11回 計画評価及び検証小委員会 資料1 (OCCTO, standard unit costs of transmission and substation equipment, published 2026-03-10; land excluded). https://www.occto.or.jp/assets/iinkai/kouikikeitouseibi_hyouka/11/hyouka_11_01_01.pdf
+66. 北海道電力ネットワーク. 北海道エリアの需給実績 (Hokkaido Electric Power Network, area supply and demand records; 30-minute values from April 2024, sending end; preliminary values). https://www.hepco.co.jp/network/con_service/public_document/supply_demand_results/index.html (accessed 2026-11-26).
+67. 資源エネルギー庁 (2026-08-06). 再生可能エネルギー出力制御の長期見通し等について, 第12回 次世代電力系統ワーキンググループ 資料1-1 (ANRE, curtailment of renewables: results by area and outlook). https://www.meti.go.jp/shingikai/enecho/denryoku_gas/saisei_kano/smart_power_grid_wg/pdf/012_01_01.pdf
+68. Xu, Q., Ricks, W., Manocha, A., Patankar, N., Jenkins, J.D. (2024). System-level impacts of voluntary carbon-free electricity procurement strategies. *Joule*, 8(2), 374–400. https://doi.org/10.1016/j.joule.2023.12.007
+69. Riepin, I., Brown, T. (2024). On the means, costs, and system-level impacts of 24/7 carbon-free energy procurement. *Energy Strategy Reviews*, 54, 101488. https://doi.org/10.1016/j.esr.2024.101488
+70. 発電コスト検証ワーキンググループ (2025-02-06). 発電コスト検証に関するとりまとめ (Power Generation Cost Verification Working Group, report): utility-scale solar 10.9 and onshore wind 16.3 yen/kWh for a 2023 plant, policy costs included. https://www.enecho.meti.go.jp/committee/council/basic_policy_subcommittee/mitoshi/cost_wg/pdf/cost_wg_20250206_01.pdf
+71. 経済産業省 (2025-03-07). 2024年度 定置用蓄電システム普及拡大検討会の結果とりまとめ (METI, stationary storage study group, results for FY2024): grid-scale battery systems in subsidy projects cost 54,000 yen/kWh on average. https://www.meti.go.jp/shingikai/energy_environment/storage_system/pdf/20250307_1.pdf
 
 ## Team
 
-Adam Curnow, Junko, Lia Vergou, Noriyuki Sugita, Paul Binder, Seiko Yamaguchi
+Adam Curnow, Junko, Koki Umebachi, Lia Vergou, Noriyuki Sugita, Paul Binder, Seiko Yamaguchi
 
 ## License and citation
 

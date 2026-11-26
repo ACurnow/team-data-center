@@ -2,6 +2,8 @@
 
 This page lists every value the models use, with its source, or marks it as an assumption. Values were checked on 2026-11-23 unless noted.
 
+**For the assumptions, see [input-evidence.md](input-evidence.md)** ([日本語](input-evidence.ja.md)): the range found in published sources for each one, where the model's value sits in it, and how far the published results move when the value moves to the end of the range.
+
 ## Data centers in Ishikari
 
 | Item | Value | Source |
@@ -32,7 +34,7 @@ This page lists every value the models use, with its source, or marks it as an a
 | Recoverable share of IT heat at 30–35 °C | 0.6 | Assumption |
 | Heat-pump COP (to about 60 °C) | 4.0 | Assumption |
 | Boiler efficiency (kerosene) | 0.85 | Assumption |
-| Lower heating value of kerosene | 9.7 kWh/L | Assumption (standard value) |
+| Heating value of kerosene | 9.7 kWh/L | Assumption, between the standard net value (9.55 kWh/L) and gross value (10.17 kWh/L); see [input-evidence.md](input-evidence.md) |
 | CO2 from kerosene | 2.50 kg/L | Ministry of the Environment list of emission factors (see *CO₂ factors and policy scenarios* below) |
 | Heat-pump electricity | 25 yen/kWh | Assumption |
 | Pipe, installed, both directions | 100,000 yen per metre of street | Assumption; compare with the range above |
@@ -70,9 +72,26 @@ Checked on 2026-11-25. The carbon prices and subsidy rates are scenario values f
 | Item | Value | Source or assumption |
 |---|---|---|
 | Transmission lines, voltage classes and substations around Ishikari | as mapped; 275, 187 and 66 kV classes | OpenStreetMap (© OpenStreetMap contributors, ODbL), downloaded into `data/cache/ishikari/power.geojson`; not checked against HEPCO Network's records |
-| Cost of a grid connection line | 100 M yen per km, turned into an annuity at 3 % over 30 years | Assumption (a slider in the app); to be replaced by published standard unit costs |
+| Cost of a grid connection line | 410 M yen per km to a 66 kV substation and 510 M yen per km to a 187 kV one, turned into an annuity at 3 % over 30 years (a slider in the app) | The middle of the standard unit costs for a two-circuit tower line, land excluded: 140 to 670 M yen/km (66/77 kV class) and 190 to 830 M yen/km (154/187 kV class). 電力広域的運営推進機関, 送変電設備の標準的な単価 (published 2026-03-10), as reproduced in https://www.occto.or.jp/assets/iinkai/kouikikeitouseibi_hyouka/11/hyouka_11_01_01.pdf . An earlier placeholder of 100 M yen/km was below this range |
 | IT load of a new data center | 10 MW, and 60 % of it in the low-load scenarios | Assumption; the ratio is that of data center No. 1 in the model |
 | Candidate sites | points of a 1.5 km grid inside the municipal boundary, moved to the nearest road | Generated; not a land survey |
+
+## Renewable matching (theme 4)
+
+Checked on 2026-11-26. The reading of each input against published values is in [input-evidence.md](input-evidence.md).
+
+| Item | Value | Source or assumption |
+|---|---|---|
+| Area demand and supply by source, 30-minute values | fiscal 2024 and 2025 (April 2024 to March 2026), 17,520 slots each; mean MW per slot at the sending end; preliminary values | 北海道電力ネットワーク「北海道エリアの需給実績」: https://www.hepco.co.jp/network/con_service/public_document/supply_demand_results/index.html . Downloaded by `dcopt.matching.records` into `data/cache/hepco_area/`; not committed, because the operator's site terms do not allow copies to be passed on (https://www.hepco.co.jp/network/using/legal.html) |
+| Solar and wind curtailed in the Hokkaido area, used as a check | fiscal 2024: 2.69 million kWh, 0.04 %; fiscal 2025: 16.24 million kWh, 0.25 % | 資源エネルギー庁, 再生可能エネルギー出力制御の長期見通し等について (2026-08-06): https://www.meti.go.jp/shingikai/enecho/denryoku_gas/saisei_kano/smart_power_grid_wg/pdf/012_01_01.pdf . The sums of the records give the same values |
+| Data-center load | constant through the year; 100 MW in the published tables | Assumption. The Japan Data Center Council describes the load of ordinary data centers as without variation over the day and the year (supercomputers and AI training apart): https://www.meti.go.jp/shingikai/enecho/denryoku_gas/saisei_kano/smart_power_grid_wg/pdf/010_01_01.pdf |
+| Shape of contracted solar and wind | the area's fleets, slot by slot | Derived from the records |
+| Level below which thermal plants cannot turn down | 514 MW (fiscal 2024), 540 MW (fiscal 2025); second case 364 and 325 MW | Derived from the records: the 10th percentile of thermal output in the slots where solar or wind was curtailed; second case: the lowest output of the year |
+| Price of solar and wind energy in the linear program | 10.9 and 16.3 yen/kWh | Generation cost of utility-scale solar and onshore wind built in 2023, policy costs included. 発電コスト検証ワーキンググループ, 発電コスト検証に関するとりまとめ (2025-02-06): https://www.enecho.meti.go.jp/committee/council/basic_policy_subcommittee/mitoshi/cost_wg/pdf/cost_wg_20250206_01.pdf |
+| Battery cost in the linear program | 60,000 yen per kWh of capacity | Assumption: 54,000 yen/kWh, the average system price of grid-scale batteries in subsidy projects in fiscal 2024, plus installation. 経済産業省, 2024年度 定置用蓄電システム普及拡大検討会の結果とりまとめ (2025-03-07): https://www.meti.go.jp/shingikai/energy_environment/storage_system/pdf/20250307_1.pdf |
+| Battery life, round-trip efficiency, shortest duration | 15 years, 85 %, 3 hours | Assumptions |
+| Discount rate for the battery | 3 % | As in theme 1 |
+| Value of the contracted energy not used in its slot | 0 yen/kWh | Assumption (cautious); adjustable in the app |
 
 ## Climate
 

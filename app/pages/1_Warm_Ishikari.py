@@ -15,14 +15,23 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from dcopt.common.geo import fetch_command, geocode, missing_map_data, paths
 from dcopt.common import llm
+from dcopt.common.geo import fetch_command, geocode, missing_map_data, paths
+from dcopt.common.style import FONT, GRID, GSI_ATTR, GSI_PALE, INK, INK2, SLOTS, SURFACE
 from dcopt.heat import whatif
 from dcopt.heat.network import ishikari_sources
-from dcopt.heat.v1 import (GRID_SCENARIOS, JMA_SOURCE, KINDS, MONTHS_EN, MONTHS_JA, Assumptions, design,
-                         ishikari_sites, pairwise, standalone_and_shared)
-from dcopt.common.style import FONT, GRID, INK, INK2, SLOTS, SURFACE
-from dcopt.common.style import GSI_ATTR, GSI_PALE
+from dcopt.heat.v1 import (
+    GRID_SCENARIOS,
+    JMA_SOURCE,
+    KINDS,
+    MONTHS_EN,
+    MONTHS_JA,
+    Assumptions,
+    cached_design,
+    ishikari_sites,
+    pairwise,
+    standalone_and_shared,
+)
 
 lang = st.session_state.get("app_lang", "日本語")
 ja = lang == "日本語"
@@ -86,12 +95,17 @@ def solve_with_new_dc(mw: float, lat: float, lon: float):
 
 @st.cache_resource(show_spinner=False)
 def solve(A: Assumptions, assumed: bool, k: int):
+    """The optimized plan (kept on disk under data/cache/, so it survives a restart), whether it came
+    from that cache, and the top-five-pairs plan."""
     dc, sites = load_sites()
     kinds = set(KIND_ORDER) if assumed else set(KIND_ORDER) - ASSUMED
-    return design(dc, sites, A, k=k, kinds=kinds, time_limit=60), pairwise(dc, sites, A, kinds=kinds)
+    opt, hit = cached_design(dc, sites, A, k=k, kinds=kinds, time_limit=60)
+    return opt, hit, pairwise(dc, sites, A, kinds=kinds)
 
 
-with st.sidebar:
+# The assumptions sit in a form: moving a slider changes nothing until Recalculate is pressed, so one
+# solve runs per intent. The what-if panel above still sets the session keys directly.
+with st.sidebar, st.form("assumptions", border=False):
     st.subheader(pick("前提（すべて仮定・変更可）", "Assumptions (all adjustable)"))
     it = st.slider(pick("データセンターのIT負荷（MW）", "Data-center IT load (MW)"), 2, 50, 10, 1, key="it_load")
     rec = st.slider(pick("回収できる廃熱の割合", "Share of heat recovered"), 0.3, 0.9, 0.6, 0.05, key="recovery")
@@ -111,6 +125,10 @@ with st.sidebar:
     subsidy_pct = st.slider(pick("設備費の補助率（%）", "Investment subsidy (%)"), 0, 75, 0, 1, key="subsidy_pct",
                             help=pick("導管の工事費のうち補助でまかなう割合。1/3は33、1/2は50、2/3は67。",
                                       "Share of the pipe investment paid by a subsidy: 33 for 1/3, 50 for 1/2, 67 for 2/3."))
+    st.form_submit_button(pick("再計算", "Recalculate"), type="primary", key="recalculate", width="stretch")
+    st.caption(pick("値を変えたら「再計算」を押してください。最適化には最大1分ほどかかります。一度解いた条件は保存され、すぐに表示されます。",
+                    "Press Recalculate after changing values. A solve takes up to about a minute; settings "
+                    "solved before are saved and load at once."))
 
 A = Assumptions(it_load_mw=float(it), recovery=float(rec), cop=float(cop), kerosene_yen_l=float(kero),
                 power_yen_kwh=float(power), pipe_yen_m=float(pipe) * 10_000, years=int(years), rate=rate / 100,
@@ -132,7 +150,8 @@ if missing := missing_map_data():
 with st.spinner(pick("石狩市の地図と施設を読み込み中…", "Loading Ishikari's map and facilities…")):
     dc, _ = load_sites()
 with st.spinner(pick("熱導管ネットワークを最適化中…", "Optimizing the heat network…")):
-    opt, pw = solve(A, assumed, k)
+    opt, from_cache, pw = solve(A, assumed, k)
+    solved = opt                               # the plan the solver returned for these settings
     base = opt if A == A0 else solve(A0, assumed, k)[0]
     if A != A0:
         kept = replace(base, A=A)              # the no-policy plan, valued under the policy
@@ -156,10 +175,15 @@ c[3].metric(pick("年間の純便益（百万円）", "Net benefit (M yen/yr)"),
 c[4].metric(pick("回収年数", "Payback (years)"), f"{opt.payback_years:.1f}",
             f"{opt.payback_years - pw.payback_years:+.1f}", delta_color="inverse")
 c[5].metric(pick("CO2削減（t/年）", "CO2 cut (t/yr)"), f"{opt.co2_t:,.0f}", f"{opt.co2_t - pw.co2_t:+,.0f}")
+gap = getattr(solved, "gap", math.nan)
+gap_ja = f"MIPギャップ {gap:.2%}" if math.isfinite(gap) else "MIPギャップ 不明"
+gap_en = f"MIP gap {gap:.2%}" if math.isfinite(gap) else "MIP gap unknown"
 st.caption(pick(f"差分は「1件ずつ採算順に上位5件を選ぶ」方法との比較。投資額 {opt.capex / 1e8:,.1f} 億円、"
-                f"最適化 {opt.seconds:.1f} 秒（{opt.status.split('.')[0]}）。",
+                f"最適化 {solved.seconds:.1f} 秒・{gap_ja}（{solved.status.split('.')[0]}）"
+                + ("、保存済みの結果を表示。" if from_cache else "。"),
                 f"Deltas against picking the top five users one by one. Investment {opt.capex / 1e8:,.1f} "
-                f"hundred-million yen; optimized in {opt.seconds:.1f} s."))
+                f"hundred-million yen; optimized in {solved.seconds:.1f} s, {gap_en}"
+                + (" (saved result)." if from_cache else ".")))
 
 # ---- CO2 and policy scenarios: what a carbon price or a subsidy changes ----
 with st.expander(pick("CO2と政策のシナリオ", "CO2 and policy scenarios"), expanded=A != A0):
@@ -344,7 +368,7 @@ with right:
         for t in range(12):
             if opt.served[i, t] > 1e-6:
                 rows.append({"month": t, "kind": KINDS[s.kind][0 if ja else 1], "mwh": opt.served[i, t]})
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows, columns=["month", "kind", "mwh"])   # columns even when nothing connects
     deliverable = [w / (1 - 1 / A.cop) for w in opt.waste_heat]
     demand = [sum(s.monthly()[t] for s in opt.sites) for t in range(12)]
     month_labels = MONTHS_JA if ja else MONTHS_EN
