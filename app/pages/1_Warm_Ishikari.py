@@ -236,16 +236,42 @@ summary = {pick("つながる需要家（件）", "connected sites"): len(opt.co
            pick("投資額（億円）", "investment (100M yen)"): round(opt.capex / 1e8, 1)}
 st.session_state["last_summary"] = summary
 
+
+def explain(question: str, changed: dict, before: dict, after: dict) -> None:
+    """Ask the LLM to explain the model's numbers; show it only if it cites no number of its own."""
+    lang = "ja" if ja else "en"
+    try:
+        with st.spinner(pick("結果を説明中…", "Explaining the results…")):
+            res = llm.chat_ex([{"role": "user", "content": whatif.explain_prompt(
+                question, changed, before, after, lang)}], max_tokens=1600)
+    except llm.LLMError as e:
+        st.error(pick(f"説明を生成できませんでした：{e}", f"Could not explain: {e}"))
+        return
+    extra = whatif.unsupported_numbers(res["text"], question, changed, before, after, lang)
+    with st.chat_message("assistant"):
+        if extra:
+            st.markdown(whatif.numbers_only_summary(changed, before, after, lang))
+            st.caption(pick(f"説明文にモデルの結果にない数値（{', '.join(extra)}）が含まれていたため、"
+                            "数値だけを表示しています。",
+                            f"The explanation used numbers the model did not compute ({', '.join(extra)}), "
+                            "so only the numbers are shown."))
+        else:
+            st.markdown(res["text"])
+        via = "OrcaRouter" if res["via"] == "orcarouter" else pick("直接接続", "direct")
+        st.caption(pick(f"回答したモデル：{res['model']}（{via}）", f"Answered by {res['model']} ({via})"))
+
+
 st.markdown("**" + pick("ライブ・シミュレーション（文章で試す）", "Live simulation (ask in plain language)") + "**")
 if not llm.settings()["has_key"]:
-    st.info(pick("環境変数 CF_API_KEY を設定すると、この欄で文章からシナリオを変えられます。"
-                 "数値はすべて左のモデルが計算します。",
-                 "Set the CF_API_KEY environment variable to change scenarios in plain language here. "
-                 "Every number is still computed by the model."))
+    st.info(pick("環境変数 CF_API_KEY（または ORCAROUTER_API_KEY）を設定すると、この欄で文章からシナリオを"
+                 "変えられます。数値はすべて左のモデルが計算します。",
+                 "Set the CF_API_KEY (or ORCAROUTER_API_KEY) environment variable to change scenarios in "
+                 "plain language here. Every number is still computed by the model."))
     st.chat_input(pick("例：電気料金を2倍にして", "e.g. double the electricity price"), disabled=True)
 else:
     q = st.chat_input(pick("例：電気料金を2倍にして、仮定の候補地も除いて",
-                           "e.g. double the electricity price and drop the assumed sites"))
+                           "e.g. double the electricity price and drop the assumed sites"),
+                      max_chars=whatif.MAX_QUESTION_CHARS)
     if q:
         # the panel is one thread: after a clarify question, the next input continues it
         ctx = st.session_state.pop("clarify_context", None)
@@ -260,16 +286,7 @@ else:
 explained = st.session_state.pop("pending_explain", None)
 clarify = st.session_state.pop("pending_clarify", None)
 if explained:
-    try:
-        with st.spinner(pick("結果を説明中…", "Explaining the results…")):
-            answer = llm.chat([{"role": "user", "content": whatif.explain_prompt(
-                explained["question"], explained["changed"], explained["before"] or {},
-                summary, "ja" if ja else "en")}], max_tokens=1600)
-    except llm.LLMError as e:
-        st.error(pick(f"説明を生成できませんでした：{e}", f"Could not explain: {e}"))
-    else:
-        with st.chat_message("assistant"):
-            st.markdown(answer)
+    explain(explained["question"], explained["changed"], explained["before"] or {}, summary)
 if clarify:
     with st.chat_message("assistant"):
         st.markdown(clarify)
@@ -311,17 +328,8 @@ if proposed:
         rows = [{pick("項目", "metric"): k, pick("新設なし", "without"): v,
                  pick("新設あり", "with"): ndc["after"][k]} for k, v in ndc["before"].items()]
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
-        try:
-            with st.spinner(pick("結果を説明中…", "Explaining the results…")):
-                answer = llm.chat([{"role": "user", "content": whatif.explain_prompt(
-                    pending["question"] if pending else place,
-                    {ndc["new_dc"]: pick("新設（仮定）", "built (assumption)")},
-                    ndc["before"], ndc["after"], "ja" if ja else "en")}], max_tokens=1600)
-        except llm.LLMError as e:
-            st.error(pick(f"説明を生成できませんでした：{e}", f"Could not explain: {e}"))
-        else:
-            with st.chat_message("assistant"):
-                st.markdown(answer)
+        explain(pending["question"] if pending else place,
+                {ndc["new_dc"]: pick("新設（仮定）", "built (assumption)")}, ndc["before"], ndc["after"])
 
 left, right = st.columns([7, 5], gap="medium")
 with left:

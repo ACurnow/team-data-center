@@ -377,6 +377,21 @@ uv run pytest                                          # テスト（地図デ�
 
 **ライブ・シミュレーション（アプリのWarm Ishikariページ）**
 - もしもの条件を、日本語でも英語でも文章で入力できます（「電気料金を2倍にして」/ "double the electricity price"）。LLM（carbonforge-flash、OpenAI互換、`CF_API_KEY` で利用。接続先は `CARBONFORGE_BASE_URL`、モデルは `LLM_MODEL` で変更できます）がそれをページの設定値に当てはめ、決定的なモデルが計算し直し、LLMが結果を説明します。LLMは数値を計算しません。入力を選び、出力を説明するだけです。
+- 出力のチェック：説明文の数値は、LLMに渡した質問・変更・結果のどれかに含まれていなければなりません。含まれない数値があると、説明文の代わりに変更と結果を箇条書きで表示し、その旨を注記します。説明の下には、回答したモデル名を表示します。質問は500文字までです。
+- 任意：LLMへの接続を [OrcaRouter](https://docs.orcarouter.ai/) 経由にして、フォールバックの順番を指定できます。CarbonForgeの障害や429でもパネルが止まりにくくなります。`ORCAROUTER_API_KEY` を設定しなければ、これまでと同じです。
+  1. OrcaRouterのコンソールで、BYOKにCarbonForgeをカスタムのOpenAI互換エンドポイントとして追加します（ベースURL `https://endpoint.carbonforge.ai/v1`、CarbonForgeのキー）。`carbonforge-flash` をインポートします。
+  2. 必要ならガードレールを追加します（コンソールのGuardrailsで作成し、キーに割り当てる）。例：入力に `max_chars` のルールと個人情報のマスク。ガードレールは入力を確認し、出力は上のチェックが確認します。
+  3. 次の環境変数を設定します。`LLM_MODELS` の最初は、インポート後にコンソールに表示されるCarbonForgeのモデルIDです。
+
+  | 環境変数 | 意味 |
+  | --- | --- |
+  | `ORCAROUTER_API_KEY` | OrcaRouterのキー（`sk-orca-...`）。設定するとOrcaRouter経由になります |
+  | `ORCAROUTER_BASE_URL` | 既定は `https://api.orcarouter.ai/v1` |
+  | `LLM_MODELS` | フォールバックの順番（カンマ区切り、最大5、CarbonForgeを先頭に） |
+  | `CF_API_KEY` | OrcaRouterに接続できないとき、または5xx/429のときに、CarbonForgeへ直接接続するために使います |
+  | `CARBONFORGE_BASE_URL`、`LLM_MODEL` | 直接接続の接続先とモデル（これまでどおり） |
+
+  OrcaRouterが次のモデルに切り替えるのは、5xx・429・ネットワークのエラーのときだけです。401/403やガードレールによるブロックは、再試行せずエラーとして表示します。プライバシー：このモードでは、プロンプト（質問とモデルの数値）がモデルの提供元に加えてOrcaRouterも通ります。
 - 仮定のスライダーはフォームにまとめてあり、「再計算」を押すまで計算しません。解いた計画は `data/cache/warm_ishikari_plans/` に保存され（コミットしません。別の場所にするには `DCOPT_PLAN_CACHE`）、一度解いた条件はすぐに表示されます。モデルのコード（`v1.py`）を変えると、保存した計画は使われなくなります。画面の説明に、計算時間、MIPギャップ、保存済みの結果かどうかが表示されます。
 
 **アニメーションの作り直し方**
