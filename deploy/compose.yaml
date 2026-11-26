@@ -47,7 +47,7 @@ services:
     <<: *app
     profiles: [build]
     environment: {}   # no DCOPT_THREADS: export_siting.py runs one-thread solves side by side
-    command: ["bash", "deploy/build-data.sh"]
+    entrypoint: ["bash", "deploy/build-data.sh"]   # so `run --rm build-data --force` passes --force
     cpus: ${BUILD_CPUS:-4}
     mem_limit: ${BUILD_MEMORY:-7g}
     networks: [internal]
